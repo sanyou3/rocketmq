@@ -20,8 +20,20 @@ import com.alibaba.fastjson.JSON;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 public class SendResult {
+
+    /**
+     * 发送结果的状态
+     */
     private SendStatus sendStatus;
+
+    /**
+     * 消息的id
+     */
     private String msgId;
+
+    /**
+     * 消息队列
+     */
     private MessageQueue messageQueue;
     private long queueOffset;
     private String transactionId;

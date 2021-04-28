@@ -17,10 +17,14 @@
 package org.apache.rocketmq.client.impl.consumer;
 
 import java.util.List;
+
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.body.ConsumeMessageDirectlyResult;
 
+/**
+ * 用来执行消息的消费，主要有顺序消费和非顺序消费的区别
+ */
 public interface ConsumeMessageService {
     void start();
 
@@ -34,11 +38,26 @@ public interface ConsumeMessageService {
 
     int getCorePoolSize();
 
+    /**
+     * 这个是直接处理消息，而不是开多线程执行
+     *
+     * @param msg
+     * @param brokerName
+     * @return
+     */
     ConsumeMessageDirectlyResult consumeMessageDirectly(final MessageExt msg, final String brokerName);
 
+    /**
+     * 提交执行消息的请求，交由线程池处理
+     *
+     * @param msgs
+     * @param processQueue
+     * @param messageQueue
+     * @param dispathToConsume
+     */
     void submitConsumeRequest(
-        final List<MessageExt> msgs,
-        final ProcessQueue processQueue,
-        final MessageQueue messageQueue,
-        final boolean dispathToConsume);
+            final List<MessageExt> msgs,
+            final ProcessQueue processQueue,
+            final MessageQueue messageQueue,
+            final boolean dispathToConsume);
 }

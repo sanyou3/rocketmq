@@ -22,6 +22,18 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 这个主要实现了 假如一个 broker 挂了，客户端可能还没感知到挂了，这时如果有往这个broker中发消息的话，那么会发送失败，这时
+ * 就会将这个broker的信息进行存储，当有其他客户端发送消息的时候，每查找一次broker的时候就会去判断这个broker是否可用，就可以
+ * 防止明明这个broker挂了，短时间内还一股脑的往上面发消息
+ *
+ *
+ * <p>
+ * 默认的投递方式比较简单，但是也暴露了一个问题，就是有些Queue队列可能由于自身数量积压等原因，可能在投递的过程比较长，对于这样的Queue队列会影响后续投递的效果。
+ * 基于这种现象，RocketMQ在每发送一个MQ消息后，都会统计一下消息投递的时间延迟，根据这个时间延迟，可以知道往哪些Queue队列投递的速度快。
+ * 在这种场景下，会优先使用消息投递延迟最小的策略，如果没有生效，再使用Queue队列轮询的方式。
+ * </p>
+ */
 public class MQFaultStrategy {
     private final static InternalLogger log = ClientLogger.getLog();
     private final LatencyFaultTolerance<String> latencyFaultTolerance = new LatencyFaultToleranceImpl();

@@ -18,16 +18,37 @@ package org.apache.rocketmq.client.impl.producer;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.apache.rocketmq.client.common.ThreadLocalIndex;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 
 public class TopicPublishInfo {
+
+    /**
+     * 是否是顺序topic
+     */
     private boolean orderTopic = false;
+
+    /**
+     * 是否有 TopicRouterInfo
+     */
     private boolean haveTopicRouterInfo = false;
+
+    /**
+     * 消息队列的基本信息
+     */
     private List<MessageQueue> messageQueueList = new ArrayList<MessageQueue>();
+
+    /**
+     * 随机来判断下一个队列应该用哪个
+     */
     private volatile ThreadLocalIndex sendWhichQueue = new ThreadLocalIndex();
+
+    /**
+     * 路由信息数据
+     */
     private TopicRouteData topicRouteData;
 
     public boolean isOrderTopic() {
@@ -66,6 +87,12 @@ public class TopicPublishInfo {
         this.haveTopicRouterInfo = haveTopicRouterInfo;
     }
 
+    /**
+     * 一个线程选择队列的时候如果 lastBrokerName 存在，那么选择的 broker 就尽量不是上一次的了，如果没得选了，那么还是上一次的
+     *
+     * @param lastBrokerName
+     * @return
+     */
     public MessageQueue selectOneMessageQueue(final String lastBrokerName) {
         if (lastBrokerName == null) {
             return selectOneMessageQueue();
@@ -106,7 +133,7 @@ public class TopicPublishInfo {
     @Override
     public String toString() {
         return "TopicPublishInfo [orderTopic=" + orderTopic + ", messageQueueList=" + messageQueueList
-            + ", sendWhichQueue=" + sendWhichQueue + ", haveTopicRouterInfo=" + haveTopicRouterInfo + "]";
+                + ", sendWhichQueue=" + sendWhichQueue + ", haveTopicRouterInfo=" + haveTopicRouterInfo + "]";
     }
 
     public TopicRouteData getTopicRouteData() {
