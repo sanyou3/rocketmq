@@ -140,7 +140,7 @@ public class MQClientInstance {
     private final ClientRemotingProcessor clientRemotingProcessor;
 
     /**
-     * 用来从客户端拉去消息
+     * 用来从客户端拉取消息
      */
     private final PullMessageService pullMessageService;
 

@@ -112,6 +112,10 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
      */
     private MessageListener messageListenerInner;
     private OffsetStore offsetStore;
+
+    /**
+     * 消费消息的服务
+     */
     private ConsumeMessageService consumeMessageService;
     private long queueFlowControlTimes = 0;
     private long queueMaxSpanFlowControlTimes = 0;
@@ -328,13 +332,14 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                                 boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
 
-                                //找到消息了，执行
+                                //找到消息了，提交消费消息的任务
                                 DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(
                                     pullResult.getMsgFoundList(),
                                     processQueue,
                                     pullRequest.getMessageQueue(),
                                     dispatchToConsume);
 
+                                //这里可以表明，当任务提交之后就会进行下一次获取消息的操作
                                 if (DefaultMQPushConsumerImpl.this.defaultMQPushConsumer.getPullInterval() > 0) {
                                     DefaultMQPushConsumerImpl.this.executePullRequestLater(pullRequest,
                                         DefaultMQPushConsumerImpl.this.defaultMQPushConsumer.getPullInterval());

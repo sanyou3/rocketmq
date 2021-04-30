@@ -379,6 +379,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         @Override
         public void run() {
             if (this.processQueue.isDropped()) {
+                //重平衡之后这个队列被抛弃了，那么就不需要消费了
                 log.info("the message queue not be able to consume, because it's dropped. group={} {}", ConsumeMessageConcurrentlyService.this.consumerGroup, this.messageQueue);
                 return;
             }
@@ -409,6 +410,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                         MessageAccessor.setConsumeStartTimeStamp(msg, String.valueOf(System.currentTimeMillis()));
                     }
                 }
+                //消费消息
                 status = listener.consumeMessage(Collections.unmodifiableList(msgs), context);
             } catch (Throwable e) {
                 log.warn("consumeMessage exception: {} Group: {} Msgs: {} MQ: {}",
@@ -454,6 +456,8 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             ConsumeMessageConcurrentlyService.this.getConsumerStatsManager()
                 .incConsumeRT(ConsumeMessageConcurrentlyService.this.consumerGroup, messageQueue.getTopic(), consumeRT);
 
+            //在某些情况下，当消息被消费之前没有 processQueue 没有drop ，
+            //然后在消息消费之后drop了，此时就不会向broker提交消息消费成功的请求，就会导致broker不知道该条消息被消费了，然后其他的消费者就有可能继续消费这条消息
             if (!processQueue.isDropped()) {
                 ConsumeMessageConcurrentlyService.this.processConsumeResult(status, context, this);
             } else {

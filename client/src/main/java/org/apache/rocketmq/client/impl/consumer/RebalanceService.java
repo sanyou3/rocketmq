@@ -21,6 +21,9 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
+/**
+ * 定时（默认是每隔20秒）进行重平衡的操作，一个客户端实例有一个，具体的重平衡操作得看消费者组的实现方式
+ */
 public class RebalanceService extends ServiceThread {
     private static long waitInterval =
         Long.parseLong(System.getProperty(

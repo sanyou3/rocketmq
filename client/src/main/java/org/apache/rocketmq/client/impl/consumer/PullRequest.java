@@ -18,10 +18,29 @@ package org.apache.rocketmq.client.impl.consumer;
 
 import org.apache.rocketmq.common.message.MessageQueue;
 
+/**
+ * 从broker中获取消息的请求，一个消费者中一个队列只对应一个这个对象
+ */
 public class PullRequest {
+
+    /**
+     * 消费者组
+     */
     private String consumerGroup;
+
+    /**
+     * 消息队列
+     */
     private MessageQueue messageQueue;
+
+    /**
+     * 消息处理的队列
+     */
     private ProcessQueue processQueue;
+
+    /**
+     * 下一次获取消息的偏移量
+     */
     private long nextOffset;
     private boolean lockedFirst = false;
 
