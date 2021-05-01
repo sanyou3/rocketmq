@@ -44,12 +44,25 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 /**
  * 重平衡，主要是针对消费者,一个消费者一个这个玩意
  * 主要是用来存储消费者订阅的主题
+ * 所谓的重平衡，就是将这次重平衡之后应该消费的队列与上次重平衡之后应该消费的队列进行比较，剔除不再消费的，新增最新订阅的
  */
 public abstract class RebalanceImpl {
     protected static final InternalLogger log = ClientLogger.getLog();
+
+    /**
+     * 该消费者正在消费的队列 和 消费的详细信息 ，这个会在重平衡的时候可能会变动
+     */
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
+
+    /**
+     * 一个消费者订阅的主题 和 主题 对应的 消息队列
+     */
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
             new ConcurrentHashMap<String, Set<MessageQueue>>();
+
+    /**
+     * 消费者订阅的主题 和 订阅消息的过滤信息
+     */
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
             new ConcurrentHashMap<String, SubscriptionData>();
     protected String consumerGroup;
@@ -219,9 +232,11 @@ public abstract class RebalanceImpl {
     }
 
     public void doRebalance(final boolean isOrder) {
+        //获取消费者订阅的主题 和 主题的过滤信息
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
+                //获取主题
                 final String topic = entry.getKey();
                 try {
                     this.rebalanceByTopic(topic, isOrder);
@@ -240,9 +255,16 @@ public abstract class RebalanceImpl {
         return subscriptionInner;
     }
 
+    /**
+     * 根据主题进行重平衡
+     *
+     * @param topic
+     * @param isOrder
+     */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
             case BROADCASTING: {
+                //获取该主题对应的消息队列集合
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
                     boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
@@ -294,6 +316,7 @@ public abstract class RebalanceImpl {
                         return;
                     }
 
+                    //这些队列就是这次重平衡的时候该消费者应该消费的队列
                     Set<MessageQueue> allocateResultSet = new HashSet<MessageQueue>();
                     if (allocateResult != null) {
                         allocateResultSet.addAll(allocateResult);
@@ -332,7 +355,7 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * 这个是
+     * 更新正在处理消息的队列
      *
      * @param topic
      * @param mqSet
@@ -343,14 +366,17 @@ public abstract class RebalanceImpl {
                                                        final boolean isOrder) {
         boolean changed = false;
 
+        //先获取平衡之前消费者消费的队列
         Iterator<Entry<MessageQueue, ProcessQueue>> it = this.processQueueTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<MessageQueue, ProcessQueue> next = it.next();
             MessageQueue mq = next.getKey();
             ProcessQueue pq = next.getValue();
 
+            //这里面的逻辑主要是剔除不属于客户端订阅的队列
             if (mq.getTopic().equals(topic)) {
                 if (!mqSet.contains(mq)) {
+                    //平衡之后消费者应该消费的队列不包含之前的队列，那么之前的这个消费队列应该从该消费者中移除
                     pq.setDropped(true);
                     if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                         it.remove();
@@ -377,6 +403,7 @@ public abstract class RebalanceImpl {
             }
         }
 
+        //这里面的逻辑主要是为新订阅的队列创建拉去消息的请求
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
         for (MessageQueue mq : mqSet) {
             if (!this.processQueueTable.containsKey(mq)) {
@@ -394,6 +421,7 @@ public abstract class RebalanceImpl {
                         log.info("doRebalance, {}, mq already exists, {}", consumerGroup, mq);
                     } else {
                         log.info("doRebalance, {}, add a new mq, {}", consumerGroup, mq);
+                        //创建新队列的对应向broker请求的对象
                         PullRequest pullRequest = new PullRequest();
                         pullRequest.setConsumerGroup(consumerGroup);
                         pullRequest.setNextOffset(nextOffset);
