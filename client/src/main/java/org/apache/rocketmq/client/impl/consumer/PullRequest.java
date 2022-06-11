@@ -42,14 +42,14 @@ public class PullRequest {
      * 下一次获取消息的偏移量
      */
     private long nextOffset;
-    private boolean lockedFirst = false;
+    private boolean previouslyLocked = false;
 
-    public boolean isLockedFirst() {
-        return lockedFirst;
+    public boolean isPreviouslyLocked() {
+        return previouslyLocked;
     }
 
-    public void setLockedFirst(boolean lockedFirst) {
-        this.lockedFirst = lockedFirst;
+    public void setPreviouslyLocked(boolean previouslyLocked) {
+        this.previouslyLocked = previouslyLocked;
     }
 
     public String getConsumerGroup() {
