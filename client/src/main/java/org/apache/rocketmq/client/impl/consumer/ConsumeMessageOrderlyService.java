@@ -64,7 +64,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
     private final MessageListenerOrderly messageListener;
 
     /**
-     *
+     * 执行消息消费的任务
      */
     private final BlockingQueue<Runnable> consumeRequestQueue;
 

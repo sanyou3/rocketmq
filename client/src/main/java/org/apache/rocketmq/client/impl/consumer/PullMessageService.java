@@ -31,6 +31,8 @@ import org.apache.rocketmq.common.utils.ThreadUtils;
 /**
  * 这个是用来 处理 从broker拉取消息的服务
  * 内部维护了一个阻塞队列，当有拉取的请求过来，就会从处理拉取的请求
+ *
+ * 一个客户端就一个
  */
 public class PullMessageService extends ServiceThread {
     private final InternalLogger log = ClientLogger.getLog();

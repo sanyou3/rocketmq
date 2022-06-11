@@ -382,6 +382,7 @@ public class RouteInfoManager {
         HashMap<String, List<String>> filterServerMap = new HashMap<String, List<String>>();
         topicRouteData.setFilterServerTable(filterServerMap);
 
+
         try {
             try {
                 this.lock.readLock().lockInterruptibly();
