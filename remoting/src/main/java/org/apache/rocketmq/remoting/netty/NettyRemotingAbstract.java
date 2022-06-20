@@ -52,6 +52,9 @@ import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.remoting.protocol.RemotingSysResponseCode;
 
+/**
+ * 是 NettyServer 和 NettyClient 的抽象父类，主要是提供了 发送请求 和 接收响应 的功能
+ */
 public abstract class NettyRemotingAbstract {
 
     /**
@@ -71,6 +74,7 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * This map caches all on-going requests.
+     * 请求id对应响应
      */
     protected final ConcurrentMap<Integer /* opaque */, ResponseFuture> responseTable =
         new ConcurrentHashMap<Integer, ResponseFuture>(256);
@@ -78,17 +82,20 @@ public abstract class NettyRemotingAbstract {
     /**
      * This container holds all processors per request code, aka, for each incoming request, we may look up the
      * responding processor in this map to handle the request.
+     * 不用的请求对应的请求的处理组件，策略模式的体现
      */
     protected final HashMap<Integer/* request code */, Pair<NettyRequestProcessor, ExecutorService>> processorTable =
         new HashMap<Integer, Pair<NettyRequestProcessor, ExecutorService>>(64);
 
     /**
      * Executor to feed netty events to user defined {@link ChannelEventListener}.
+     * 后台线程，会去处理 NettyEvent事件，回调 子类实现的 {@link #getChannelEventListener()} 方法提供的 ChannelEventListener 实现类
      */
     protected final NettyEventExecutor nettyEventExecutor = new NettyEventExecutor();
 
     /**
      * The default request processor to use in case there is no exact match in {@link #processorTable} per request code.
+     * 默认的请求组件，如果在 processorTable 中没有找到对应请求的处理组件，那么就会用这个组件来处理请求
      */
     protected Pair<NettyRequestProcessor, ExecutorService> defaultRequestProcessor;
 
@@ -136,7 +143,7 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * Entry of incoming command processing.
-     *
+     * 处理请求或者是响应
      * <p>
      * <strong>Note:</strong>
      * The incoming remoting command may be
@@ -294,9 +301,12 @@ public abstract class NettyRemotingAbstract {
             responseTable.remove(opaque);
 
             if (responseFuture.getInvokeCallback() != null) {
+                // invokeAsyncImpl 响应的回调
                 executeInvokeCallback(responseFuture);
             } else {
+                // invokeSyncImpl 响应
                 responseFuture.putResponse(cmd);
+                // 这个有必要么？ sync发送的时候没有信号量的获取
                 responseFuture.release();
             }
         } else {
@@ -455,6 +465,7 @@ public abstract class NettyRemotingAbstract {
         boolean acquired = this.semaphoreAsync.tryAcquire(timeoutMillis, TimeUnit.MILLISECONDS);
         if (acquired) {
             final SemaphoreReleaseOnlyOnce once = new SemaphoreReleaseOnlyOnce(this.semaphoreAsync);
+            //因为 tryAcquire 可能耗费了很多时间 ，所以得需要减去 tryAcquire 消耗的时间，这样剩下的时间是请求等待响应的时间
             long costTime = System.currentTimeMillis() - beginStartTime;
             if (timeoutMillis < costTime) {
                 once.release();

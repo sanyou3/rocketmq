@@ -20,6 +20,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import io.netty.handler.ssl.SslContext;
 import org.apache.rocketmq.common.Configuration;
 import org.apache.rocketmq.common.ThreadFactoryImpl;
 import org.apache.rocketmq.common.constant.LoggerName;
@@ -49,15 +51,29 @@ public class NamesrvController {
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl(
         "NSScheduledThread"));
     private final KVConfigManager kvConfigManager;
+
+    /**
+     * broker和路由信息的管理组件
+     */
     private final RouteInfoManager routeInfoManager;
 
+    /**
+     * 处理所有来自broker或者client的请求的线程池
+     */
     private RemotingServer remotingServer;
 
     private BrokerHousekeepingService brokerHousekeepingService;
 
+    /**
+     * 对于 NameServer来说，所有用来处理请求的线程池 默认是 8 个线程
+     */
     private ExecutorService remotingExecutor;
 
     private Configuration configuration;
+
+    /**
+     * 这个是用来监听 tls/ssl 加密证书 key的变化的，如果发现加密证书或者key有变化，那么就会重新生成 {@link SslContext} 这样就实现了动态刷新，而不用重新启动服务
+     */
     private FileWatchService fileWatchService;
 
     public NamesrvController(NamesrvConfig namesrvConfig, NettyServerConfig nettyServerConfig) {

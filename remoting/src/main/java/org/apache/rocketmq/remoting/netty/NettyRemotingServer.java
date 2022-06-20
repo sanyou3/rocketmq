@@ -67,14 +67,37 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 public class NettyRemotingServer extends NettyRemotingAbstract implements RemotingServer {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
     private final ServerBootstrap serverBootstrap;
+
+    /**
+     * 负责io多路复用的，每个线程监听一批建立好的连接，循环判断有没有读写请求
+     */
     private final EventLoopGroup eventLoopGroupSelector;
+
+    /**
+     * 负责建立连接的线程池 会去监听 ServerSocketChannel ，然后绑定一堆 netty handler  线程数量默认是1个
+     */
     private final EventLoopGroup eventLoopGroupBoss;
+
+    /**
+     * nettyServer 的配置信息
+     */
     private final NettyServerConfig nettyServerConfig;
 
+    /**
+     * 公共的线程池，默认是4个线程数
+     */
     private final ExecutorService publicExecutor;
+
+    /**
+     * 连接异常情况channel的处理 实现 BrokerHousekeepingService
+     */
     private final ChannelEventListener channelEventListener;
 
     private final Timer timer = new Timer("ServerHouseKeepingService", true);
+
+    /**
+     *
+     */
     private DefaultEventExecutorGroup defaultEventExecutorGroup;
 
 
@@ -115,6 +138,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
             }
         });
 
+        //  useEpoll() 默认是 false
         if (useEpoll()) {
             this.eventLoopGroupBoss = new EpollEventLoopGroup(1, new ThreadFactory() {
                 private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -212,6 +236,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                             .addLast(defaultEventExecutorGroup,
                                 encoder,
                                 new NettyDecoder(),
+                                //这个是个读写空闲检查的组件，内部会启动一个定时调度的任务，每隔指定的时间，会去判断指定的时间内有没有发送读写操作，然后触发相应的事件
                                 new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
                                 connectionManageHandler,
                                 serverHandler

@@ -33,11 +33,18 @@ public class Configuration {
 
     private final InternalLogger log;
 
+    /**
+     * 配置对象 ， 一个对象也算是一个配置 比如说 用户对象 User ，里面封装了一些 姓名、年龄的属性，这些就算是配置。key 就是 属性名 ，值就是属性值
+     */
     private List<Object> configObjectList = new ArrayList<Object>(4);
     private String storePath;
     private boolean storePathFromConfig = false;
     private Object storePathObject;
     private Field storePathField;
+
+    /**
+     * 当前这个配置的版本号
+     */
     private DataVersion dataVersion = new DataVersion();
     private ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     /**
@@ -75,8 +82,10 @@ public class Configuration {
 
             try {
 
+                //将配置信息的对象装换成一个 Properties ，key 就是 属性名 ，值就是属性值
                 Properties registerProps = MixAll.object2Properties(configObject);
 
+                // 将信息的配置信息存入到 allConfigs 中
                 merge(registerProps, this.allConfigs);
 
                 configObjectList.add(configObject);

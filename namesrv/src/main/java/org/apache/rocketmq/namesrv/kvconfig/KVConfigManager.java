@@ -58,6 +58,12 @@ public class KVConfigManager {
         }
     }
 
+    /**
+     * 将配置存入 map 中，然后同步写入磁盘
+     * @param namespace
+     * @param key
+     * @param value
+     */
     public void putKVConfig(final String namespace, final String key, final String value) {
         try {
             this.lock.writeLock().lockInterruptibly();
@@ -151,6 +157,13 @@ public class KVConfigManager {
         return null;
     }
 
+    /**
+     * 获取某个key对应的值
+     *
+     * @param namespace
+     * @param key
+     * @return
+     */
     public String getKVConfig(final String namespace, final String key) {
         try {
             this.lock.readLock().lockInterruptibly();
@@ -169,6 +182,9 @@ public class KVConfigManager {
         return null;
     }
 
+    /**
+     * 定时打印配置信息
+     */
     public void printAllPeriodically() {
         try {
             this.lock.readLock().lockInterruptibly();

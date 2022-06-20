@@ -21,6 +21,11 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 配置的管理组件
+ * 主要提供了文件的读取，持久化
+ * 编解码的功能的主要由子类实现
+ */
 public abstract class ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
@@ -41,6 +46,7 @@ public abstract class ConfigManager {
             }
         } catch (Exception e) {
             log.error("load " + fileName + " failed, and try to load backup file", e);
+            //当出现异常了，那么就会恢复 .bak 的备份文件
             return this.loadBak();
         }
     }
