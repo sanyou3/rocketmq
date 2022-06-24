@@ -19,6 +19,9 @@ package org.apache.rocketmq.common.subscription;
 
 import org.apache.rocketmq.common.MixAll;
 
+/**
+ * 订阅组的信息，订阅组可以用来控制消费者组的消费的
+ */
 public class SubscriptionGroupConfig {
 
     private String groupName;

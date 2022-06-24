@@ -31,6 +31,14 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.common.subscription.SubscriptionGroupConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
+/**
+ * 订阅组管理 订阅组可以理解为一个兜底的东西，当
+ * <p>
+ * 订阅组和消费者组的关系
+ * 消费者组的消费依赖订阅组，只有先创建订阅者组，才能消费消息
+ *
+ * @see org.apache.rocketmq.broker.client.ConsumerGroupInfo
+ */
 public class SubscriptionGroupManager extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
 

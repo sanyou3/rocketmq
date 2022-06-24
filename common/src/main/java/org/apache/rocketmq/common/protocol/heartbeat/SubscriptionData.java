@@ -27,7 +27,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
+ * 一个消费者组队某个topic订阅数据的元信息
  * 存储订阅的主题以及主题对应的过滤消息的信息
+ * @see ConsumerGroupInfo
  */
 public class SubscriptionData implements Comparable<SubscriptionData> {
     public final static String SUB_ALL = "*";

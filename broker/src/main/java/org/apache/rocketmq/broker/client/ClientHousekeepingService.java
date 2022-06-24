@@ -27,6 +27,11 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.ChannelEventListener;
 
+/**
+ * 处理连接事件的组件，会定时每隔10s钟扫描连接失活的 Channel，然后关闭 Channel
+ *
+ * 同时会监听 Channel 关闭、异常、空闲的事件，然后对内存中的数据进行 修改
+ */
 public class ClientHousekeepingService implements ChannelEventListener {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final BrokerController brokerController;

@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Consumer filter data manager.Just manage the consumers use expression filter.
+ * 管理根据表达式来消费的 消费者的过滤信息
  */
 public class ConsumerFilterManager extends ConfigManager {
 
@@ -47,6 +48,9 @@ public class ConsumerFilterManager extends ConfigManager {
 
     private static final long MS_24_HOUR = 24 * 3600 * 1000;
 
+    /**
+     * topic 映射 订阅这个topic的所有的消费者组的信息
+     */
     private ConcurrentMap<String/*Topic*/, FilterDataMapByTopic>
         filterDataByTopic = new ConcurrentHashMap<String/*Topic*/, FilterDataMapByTopic>(256);
 

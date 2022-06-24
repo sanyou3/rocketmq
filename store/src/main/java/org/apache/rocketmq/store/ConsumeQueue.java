@@ -29,6 +29,11 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.config.BrokerRole;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
+/**
+ * 每个 topic 每个 queueid 的消息索引吧，可以这么认为，
+ * 通过这个组件能够快速确定 这个 topic 的 这个 queueid 的消息在 commitlog中的物理偏移量 offset
+
+ */
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 

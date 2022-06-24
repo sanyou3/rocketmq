@@ -51,6 +51,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * 这个组件是 broker 主动向客户端发起请求的组件
+ */
 public class Broker2Client {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final BrokerController brokerController;
@@ -59,6 +62,15 @@ public class Broker2Client {
         this.brokerController = brokerController;
     }
 
+    /**
+     * 检查生产者的事务状态 ， 当生产者没有及时提交或者回滚事务，就会发送请求，让生产者去提交事务的状态
+     *
+     * @param group
+     * @param channel
+     * @param requestHeader
+     * @param messageExt
+     * @throws Exception
+     */
     public void checkProducerTransactionState(
         final String group,
         final Channel channel,
@@ -81,6 +93,12 @@ public class Broker2Client {
         return this.brokerController.getRemotingServer().invokeSync(channel, request, 10000);
     }
 
+    /**
+     * 通知消费者，消费者的id有变化
+     *
+     * @param channel
+     * @param consumerGroup
+     */
     public void notifyConsumerIdsChanged(
         final Channel channel,
         final String consumerGroup) {
@@ -105,6 +123,16 @@ public class Broker2Client {
         return resetOffset(topic, group, timeStamp, isForce, false);
     }
 
+    /**
+     * 通知订阅指定 topic的 指定消费者组 的 每个消费者，重新复位消费偏移量
+     *
+     * @param topic
+     * @param group
+     * @param timeStamp
+     * @param isForce
+     * @param isC
+     * @return
+     */
     public RemotingCommand resetOffset(String topic, String group, long timeStamp, boolean isForce,
                                        boolean isC) {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);
@@ -227,6 +255,14 @@ public class Broker2Client {
         return list;
     }
 
+    /**
+     * 向每个消费者请求，获取每个消费者的消费状态，然后组成一个响应返回回去
+     *
+     * @param topic
+     * @param group
+     * @param originClientId
+     * @return
+     */
     public RemotingCommand getConsumeStatus(String topic, String group, String originClientId) {
         final RemotingCommand result = RemotingCommand.createResponseCommand(null);
 

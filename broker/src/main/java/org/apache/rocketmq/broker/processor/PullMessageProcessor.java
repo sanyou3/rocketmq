@@ -412,6 +412,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     break;
                 case ResponseCode.PULL_NOT_FOUND:
 
+                    // 消息没找到，如果允许请求挂起的话，那么就会将请求挂起，等有消息的时候，再将消息返回给客户端
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         long pollingTimeMills = suspendTimeoutMillisLong;
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
@@ -424,6 +425,8 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         PullRequest pullRequest = new PullRequest(request, channel, pollingTimeMills,
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
                         this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
+
+                        // response 设置为null，就不会给客户端响应的意思
                         response = null;
                         break;
                     }

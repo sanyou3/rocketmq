@@ -29,6 +29,17 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.ConsumeQueueExt;
 
+/**
+ * 这个组件的作用是如果消费者来拉取消息的时候，没有消息可以消费的话，那么会将请求给暂时保存起来，并不会立马响应给客户端
+ * <p>
+ * 为什么要暂存？ 有什么好处么？
+ * 主要是因为有长轮询的机制，消费者会一直轮训broker，获取消息，当没有消息的时候，这些请求其实是无效的，为了避免这些无效的请求过多，
+ * 可以通过将请求挂起的方式，客户端拿不到响应会一直等待，直到有消息或者超时为止，才会返回给客户端响应
+ * <p>
+ * 那什么时候会处理暂存的请求呢？
+ * 第一种:会有一个后台线程定时，默认5s去遍历一下请求，发现如果有消息可以消费的话，那么就将消费的消息返回
+ * 第二种：当有新的消息产生的时候，会过来通知这个组件，去遍历一下请求，发现如果有消息可以消费的话，那么就将消费的消息返回
+ */
 public class PullRequestHoldService extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     protected static final String TOPIC_QUEUEID_SEPARATOR = "@";

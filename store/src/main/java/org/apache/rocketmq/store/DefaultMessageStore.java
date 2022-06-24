@@ -71,13 +71,13 @@ import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
 /**
- * 消息存储的类
+ * 消息存储的组件，非常非常的重要，核心组件
  */
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
     private final MessageStoreConfig messageStoreConfig;
-    // CommitLog
+    // CommitLog 核心物理磁盘存储的数据结构
     private final CommitLog commitLog;
 
     /**
