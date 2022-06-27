@@ -38,6 +38,9 @@ public class MappedFileQueue {
 
     private final String storePath;
 
+    /**
+     * 每个 mappedFileSize 文件的大小
+     */
     protected final int mappedFileSize;
 
     protected final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
@@ -146,6 +149,10 @@ public class MappedFileQueue {
     }
 
 
+    /**
+     * 直接将已经存在的文件给load成 MappedFile
+     * @return
+     */
     public boolean load() {
         File dir = new File(this.storePath);
         File[] ls = dir.listFiles();
@@ -436,6 +443,11 @@ public class MappedFileQueue {
         return deleteCount;
     }
 
+    /**
+     * 刷盘
+     * @param flushLeastPages 0 的时候说明刷全部，有多少刷多少
+     * @return
+     */
     public boolean flush(final int flushLeastPages) {
         boolean result = true;
         MappedFile mappedFile = this.findMappedFileByOffset(this.flushedWhere, this.flushedWhere == 0);

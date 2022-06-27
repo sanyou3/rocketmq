@@ -22,6 +22,9 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ *
+ */
 public abstract class ServiceThread implements Runnable {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
@@ -29,6 +32,10 @@ public abstract class ServiceThread implements Runnable {
 
     private Thread thread;
     protected final CountDownLatch2 waitPoint = new CountDownLatch2(1);
+
+    /**
+     * true 说明处于唤醒状态，不需要等待  一次等待，一次休眠，这样交替进行
+     */
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
     protected volatile boolean stopped = false;
     protected boolean isDaemon = false;
@@ -127,11 +134,13 @@ public abstract class ServiceThread implements Runnable {
     }
 
     protected void waitForRunning(long interval) {
+        // 如果一进来就是唤醒的状态，那么就不用休眠了，直接就返回，
         if (hasNotified.compareAndSet(true, false)) {
             this.onWaitEnd();
             return;
         }
 
+        //如果不是唤醒状态，那么就需要等待，说明条件不满足，需要等待唤醒
         //entry to wait
         waitPoint.reset();
 

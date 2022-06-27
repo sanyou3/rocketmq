@@ -52,6 +52,14 @@ import org.apache.rocketmq.store.PutMessageStatus;
 import org.apache.rocketmq.store.SelectMappedBufferResult;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
+/**
+ * 延迟消息的服务组件
+ *
+ * 延迟消息的实现很有意思，就是延迟消息都会先放到一个topic {@link TopicValidator.RMQ_SYS_SCHEDULE_TOPIC}中，
+ * 这些topic可以理解为一个中转的topic，因为有延迟，所以消息一旦刚到达的时候是不会直接放到目标的topic的，而是放在这个中转的topic的
+ * 然后会开启定时任务，当消息达到了延迟的时间，会重新将消息重新通过 DefaultMessageStore 写入消息到真正目标的topic
+ * 放在这个中转的topic的还有一个好处，那就是延迟的消息也可以实现持久化，这样就不怕丢消息了
+ */
 public class ScheduleMessageService extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
@@ -512,6 +520,7 @@ public class ScheduleMessageService extends ConfigManager {
 
         private PutResultProcess deliverMessage(MessageExtBrokerInner msgInner, String msgId, long offset,
             long offsetPy, int sizePy, boolean autoResend) {
+            //重新写入消息
             CompletableFuture<PutMessageResult> future =
                 ScheduleMessageService.this.writeMessageStore.asyncPutMessage(msgInner);
             return new PutResultProcess()

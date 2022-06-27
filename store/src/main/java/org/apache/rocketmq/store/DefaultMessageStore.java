@@ -565,6 +565,17 @@ public class DefaultMessageStore implements MessageStore {
         return commitLog;
     }
 
+    /**
+     * 获取消息的实现，消费者来拉取消息主要是通过这个方法来实现消息的查找
+     *
+     * @param group         Consumer group that launches this query.
+     * @param topic         Topic to query.
+     * @param queueId       Queue ID to query.
+     * @param offset        Logical offset to start from. 逻辑消息的位置其实就是指这个消息在 Queue 中的位置，通过在Queue的中的位置就能拿到真正消息的位置，就能获取到消息了
+     * @param maxMsgNums    Maximum count of messages to query.
+     * @param messageFilter Message filter used to screen desired messages.
+     * @return
+     */
     public GetMessageResult getMessage(final String group, final String topic, final int queueId, final long offset,
         final int maxMsgNums,
         final MessageFilter messageFilter) {
@@ -595,6 +606,7 @@ public class DefaultMessageStore implements MessageStore {
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
+        // 根据 topic 和 queueId 找到对应的 ConsumeQueue
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
             minOffset = consumeQueue.getMinOffsetInQueue();
@@ -633,6 +645,7 @@ public class DefaultMessageStore implements MessageStore {
 
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
                         for (; i < bufferConsumeQueue.getSize() && i < maxFilterMessageCount; i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
+                            //拿到消息的位置信息，然后通过这个位置信息去 CommitLog 查找真正的消息内容
                             long offsetPy = bufferConsumeQueue.getByteBuffer().getLong();
                             int sizePy = bufferConsumeQueue.getByteBuffer().getInt();
                             long tagsCode = bufferConsumeQueue.getByteBuffer().getLong();

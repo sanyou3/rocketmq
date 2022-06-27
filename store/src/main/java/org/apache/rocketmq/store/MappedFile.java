@@ -42,6 +42,11 @@ import org.apache.rocketmq.store.config.FlushDiskType;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
+/**
+ * 一个真正的物理磁盘上的文件对应一个MappedFile
+ * 对于一个 ConsumeQueue 会有很多个 MappedFile ，一个 MappedFile 值存储一部分消息的位置信息
+ * 对于一个 CommitLog 会有很多个 MappedFile ，一个 MappedFile 存储一部分消息
+ */
 public class MappedFile extends ReferenceResource {
     public static final int OS_PAGE_SIZE = 1024 * 4;
     protected static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -56,10 +61,18 @@ public class MappedFile extends ReferenceResource {
     protected FileChannel fileChannel;
     /**
      * Message will put to here first, and then reput to FileChannel if writeBuffer is not null.
+     * 这个写缓冲区默认就是null，仅仅当启用了 TransientStorePool 之后才不会为null，默认 TransientStorePool 是不启用的
      */
     protected ByteBuffer writeBuffer = null;
     protected TransientStorePool transientStorePool = null;
+    /**
+     * 文件名其实就是这个文件保存的第一个消息的偏移量的位置 fileFromOffset ，
+     * 代表了这个文件存的消息是从哪个offset位置开始的，这样就可以根据要消费的偏移量快速查找到对应的消息索引所在的MappedFile
+     */
     private String fileName;
+    /**
+     * 就是文件名转过来的
+     */
     private long fileFromOffset;
     private File file;
     private MappedByteBuffer mappedByteBuffer;
@@ -385,6 +398,12 @@ public class MappedFile extends ReferenceResource {
         return this.fileSize == this.wrotePosition.get();
     }
 
+    /**
+     *
+     * @param pos 在这个文件的具体的物理位置
+     * @param size 需要读取的字节数
+     * @return
+     */
     public SelectMappedBufferResult selectMappedBuffer(int pos, int size) {
         int readPosition = getReadPosition();
         if ((pos + size) <= readPosition) {

@@ -61,9 +61,14 @@ public class CommitLog {
     protected final static int BLANK_MAGIC_CODE = -875286124;
     protected final MappedFileQueue mappedFileQueue;
     protected final DefaultMessageStore defaultMessageStore;
+
+    /**
+     * 刷盘机制的实现
+     */
     private final FlushCommitLogService flushCommitLogService;
 
     //If TransientStorePool enabled, we must flush message to FileChannel at fixed periods
+    // 池化，默认都不开的
     private final FlushCommitLogService commitLogService;
 
     private final AppendMessageCallback appendMessageCallback;
@@ -604,6 +609,12 @@ public class CommitLog {
         return keyBuilder.toString();
     }
 
+    /**
+     * 存消息 非常重要的一个方法
+     *
+     * @param msg
+     * @return
+     */
     public CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
         // Set the storage time
         msg.setStoreTimestamp(System.currentTimeMillis());
@@ -620,6 +631,7 @@ public class CommitLog {
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
+            // 延迟消息的处理，将延迟消息放到中转的延迟队列中保存
             // Delay Delivery
             if (msg.getDelayTimeLevel() > 0) {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
@@ -722,7 +734,9 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).add(1);
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).add(result.getWroteBytes());
 
+        // 提交刷盘的请求
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
+        //提交主从复制的请求
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {
@@ -857,18 +871,23 @@ public class CommitLog {
         if (FlushDiskType.SYNC_FLUSH == this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
             final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
             if (messageExt.isWaitStoreMsgOK()) {
+                //需要同步等待刷盘的结果，那么就构建一个同步刷盘的请求，然后提交，可以通过这个
                 GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
                         this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
+                //往 flushDiskWatcher 中添加一个请求，flushDiskWatcher的作用就是用来判断本次同步刷盘的有没有超时的，如果超时，就将超时的结果放入到 GroupCommitRequest 中的 flushOKFuture中，这样就能本次知道刷盘的结果了
                 flushDiskWatcher.add(request);
+                //放入一个请求，然后会有后台线程来进行刷盘操作，然后把刷盘的结果放入到 GroupCommitRequest 中的 flushOKFuture中，这样就能本次知道刷盘的结果了
                 service.putRequest(request);
                 return request.future();
             } else {
+                // 不同步等待刷盘结果，算是同步刷盘么？
                 service.wakeup();
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
         }
         // Asynchronous flush
         else {
+            // 异步刷盘，叫醒
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                 flushCommitLogService.wakeup();
             } else  {
@@ -1020,6 +1039,9 @@ public class CommitLog {
         protected static final int RETRY_TIMES_OVER = 10;
     }
 
+    /**
+     *
+     */
     class CommitRealTimeService extends FlushCommitLogService {
 
         private long lastCommitTimestamp = 0;
@@ -1073,7 +1095,19 @@ public class CommitLog {
         }
     }
 
+    /**
+     * 异步刷盘 异步刷盘也有两种机制，是根据配置文件来决定的，二选一，默认是第一种
+     * 1）一种是定时异步刷，也就是每隔0.5s刷一次盘，
+     * 2）还有一种就是来一条消息刷一次，但是也是异步的
+     * 默认每次刷4页，不足4页就不刷，也就是说，也就是靠这种刷盘机制，可能会有少于4页的数据刷不到磁盘
+     * <p>
+     * 因为每隔0.5s刷一次盘或者有数据就刷的要求默认至少有4页的数据才会刷，可能会有少于4页的数据刷不到磁盘，
+     * 为了彻底地将少于4页的数据刷到磁盘，默认每隔10s中就强制刷一次所有的数据到磁盘，所以理论上每隔10s中，磁盘的数据和内存中的数据是一样的
+     */
     class FlushRealTimeService extends FlushCommitLogService {
+        /**
+         * 上一次彻底将所有的数据刷到磁盘
+         */
         private long lastFlushTimestamp = 0;
         private long printTimes = 0;
 
@@ -1083,7 +1117,9 @@ public class CommitLog {
             while (!this.isStopped()) {
                 boolean flushCommitLogTimed = CommitLog.this.defaultMessageStore.getMessageStoreConfig().isFlushCommitLogTimed();
 
+                //刷盘的频率
                 int interval = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushIntervalCommitLog();
+                // 默认一次刷 4 页数据，也就是16k
                 int flushPhysicQueueLeastPages = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushCommitLogLeastPages();
 
                 int flushPhysicQueueThoroughInterval =
@@ -1101,8 +1137,10 @@ public class CommitLog {
 
                 try {
                     if (flushCommitLogTimed) {
+                        // 定时 每个一定时间刷，不论这段时间有没有新的数据产生
                         Thread.sleep(interval);
                     } else {
+                        //等待，有数据就刷
                         this.waitForRunning(interval);
                     }
 
@@ -1184,8 +1222,13 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
+     * 同步刷盘
      */
     class GroupCommitService extends FlushCommitLogService {
+        // 这里之所以搞两个集合就是一种减少锁占用时间的锁优化策略
+        // 当有请求来的时候，将请求放在 requestsWrite 中，然后如果要读的话，
+        // 先将 requestsWrite 和 requestsRead 对换，这样现在 requestsRead 就是原来的 requestsWrite，现在的 requestsWrite 就是原来的 requestsRead
+        // 建议好好想想
         private volatile LinkedList<GroupCommitRequest> requestsWrite = new LinkedList<GroupCommitRequest>();
         private volatile LinkedList<GroupCommitRequest> requestsRead = new LinkedList<GroupCommitRequest>();
         private final PutMessageSpinLock lock = new PutMessageSpinLock();
@@ -1222,6 +1265,7 @@ public class CommitLog {
                         flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     }
 
+                    //放入结果
                     req.wakeupCustomer(flushOK ? PutMessageStatus.PUT_OK : PutMessageStatus.FLUSH_DISK_TIMEOUT);
                 }
 
@@ -1308,6 +1352,7 @@ public class CommitLog {
             // STORETIMESTAMP + STOREHOSTADDRESS + OFFSET <br>
 
             // PHY OFFSET
+            // 这个 wroteOffset 的位置是在整个CommitLog中的位置，而不是在某个特定文件的位置 ，某个特定文件的位置其实就是 byteBuffer.position()
             long wroteOffset = fileFromOffset + byteBuffer.position();
 
             Supplier<String> msgIdSupplier = () -> {
@@ -1395,6 +1440,7 @@ public class CommitLog {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
                 case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
                     // The next update ConsumeQueue information
+                    //累加的。。。
                     CommitLog.this.topicQueueTable.put(key, ++queueOffset);
                     CommitLog.this.multiDispatch.updateMultiQueueOffset(msgInner);
                     break;

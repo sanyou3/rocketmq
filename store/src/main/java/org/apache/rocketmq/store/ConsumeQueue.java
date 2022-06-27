@@ -30,13 +30,21 @@ import org.apache.rocketmq.store.config.BrokerRole;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
 /**
- * 每个 topic 每个 queueid 的消息索引吧，可以这么认为，
+ * 一个 topic 一个 queueid 对应一个 ConsumeQueue ，通过ConsumeQueue可以快速的查找到消息在commitlog中的具体位置，可以理解为时一个索引文件，方便快速查找真正的消息位置
  * 通过这个组件能够快速确定 这个 topic 的 这个 queueid 的消息在 commitlog中的物理偏移量 offset
-
+ * <p>
+ * ConsumeQueue 可以认为是一个门面，真正实现存储功能的是 MappedFile ，一个 ConsumeQueue 有很多个 MappedFile ，
+ * 因为很简单，一个队列可能有很多的消息，那么用一个文件来存储消息的位置信息肯定是不行的，所以需要多个文件来存储，每个文件就对应一个 MappedFile
+ * <p>
+ *     ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次来消费的时候，给的offset会乘以20，因为每条消息的索引就是20个字节
+ * </p>
  */
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    /**
+     * 每个消息对应的在 ConsumeQueue 中的内容的长度
+     */
     public static final int CQ_STORE_UNIT_SIZE = 20;
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
 
