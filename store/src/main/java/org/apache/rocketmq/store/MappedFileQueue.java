@@ -30,6 +30,12 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 可以认为是一个 MappedFile 管理的组件。管理了一个目录底下的所有文件。
+ * 这个组件不care是CommitLog还是ConsumeQueue，这个仅仅只管理文件，至于文件存什么，最终取决于这个 MappedFileQueue 是在 CommitLog还是 ConsumeQueue 中
+ * 在 CommitLog 中就是存储的是 CommitLog 的东西
+ * 在 ConsumeQueue 中 存储的就是消息的算是索引吧，逻辑消费队列
+ */
 public class MappedFileQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
@@ -125,6 +131,10 @@ public class MappedFileQueue {
         this.deleteExpiredFile(willRemoveFiles);
     }
 
+    /**
+     * 从 mappedFiles 中删除指定的 files
+     * @param files
+     */
     void deleteExpiredFile(List<MappedFile> files) {
 
         if (!files.isEmpty()) {
@@ -151,6 +161,7 @@ public class MappedFileQueue {
 
     /**
      * 直接将已经存在的文件给load成 MappedFile
+     * 根据文件
      * @return
      */
     public boolean load() {
@@ -358,6 +369,7 @@ public class MappedFileQueue {
         final int deleteFilesInterval,
         final long intervalForcibly,
         final boolean cleanImmediately) {
+        //获取所有的 MappedFile
         Object[] mfs = this.copyMappedFiles(0);
 
         if (null == mfs)

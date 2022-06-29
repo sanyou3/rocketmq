@@ -57,6 +57,9 @@ public class HAService {
 
     private final GroupTransferService groupTransferService;
 
+    /**
+     * 这个用来向主的Master Broker 复制 消息
+     */
     private final HAClient haClient;
 
     public HAService(final DefaultMessageStore defaultMessageStore) throws IOException {
@@ -551,6 +554,7 @@ public class HAService {
                 try {
                     if (this.connectMaster()) {
 
+                        // 默认5s一次
                         if (this.isTimeToReportOffset()) {
                             boolean result = this.reportSlaveMaxOffset(this.currentReportedOffset);
                             if (!result) {

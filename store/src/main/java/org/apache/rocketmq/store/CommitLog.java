@@ -71,6 +71,9 @@ public class CommitLog {
     // 池化，默认都不开的
     private final FlushCommitLogService commitLogService;
 
+    /**
+     * 真正写消息到 MappedFile的文件组件，
+     */
     private final AppendMessageCallback appendMessageCallback;
     private final ThreadLocal<PutMessageThreadLocal> putMessageThreadLocal;
     protected HashMap<String/* topic-queueid */, Long/* offset */> topicQueueTable = new HashMap<String, Long>(1024);
@@ -134,6 +137,10 @@ public class CommitLog {
         return putMessageThreadLocal;
     }
 
+    /**
+     * 加载已有的 CommitLog 对应的文件
+     * @return
+     */
     public boolean load() {
         boolean result = this.mappedFileQueue.load();
         log.info("load commit log " + (result ? "OK" : "Failed"));
@@ -198,9 +205,12 @@ public class CommitLog {
 
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        // 先找到 物理偏移量 offset 在哪个 MappedFile 中
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);
         if (mappedFile != null) {
+            // 找到 offset 在 MappedFile 中的位置
             int pos = (int) (offset % mappedFileSize);
+            // 根据位置，去查找消息
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(pos);
             return result;
         }
@@ -674,6 +684,7 @@ public class CommitLog {
 
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
+            // 获取最后一个MappedFile，其实很简单，因为CommitLog有很多的文件，那么每次写新的消息肯定要往最新的文件也就是最后一个文件写
             MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
             this.beginTimeInLock = beginLockTimestamp;
@@ -1328,7 +1339,7 @@ public class CommitLog {
     }
 
     /**
-     * 将消息放入 ByteBuffer中
+     * 将消息写入 MappedFile 对应的 ByteBuffer 中
      */
     class DefaultAppendMessageCallback implements AppendMessageCallback {
         // File at the end of the minimum fixed length empty
