@@ -505,6 +505,9 @@ public class ConsumeQueue {
         this.byteBufferIndex.putInt(size);
         this.byteBufferIndex.putLong(tagsCode);
 
+        // cqOffset 的offset是从 0开始的。第一条 expectLogicOffset 就是期望放数据的位置，
+        // 假设是第一条数据，那么cqOffset是0，也就是expectLogicOffset=0，从第1个字节开始写 .总共写20个字节
+        // 当cqOffset是1时，也就是expectLogicOffset=20，但是是从第21个位置开始写，因为一条20个字节，第一条已经写了20个了，只能从第21个位置写
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile(expectLogicOffset);
@@ -520,6 +523,7 @@ public class ConsumeQueue {
             }
 
             if (cqOffset != 0) {
+                // 假设是第一条数据，那么currentLogicOffset是0，假设是第二个 currentLogicOffset = 20
                 long currentLogicOffset = mappedFile.getWrotePosition() + mappedFile.getFileFromOffset();
 
                 if (expectLogicOffset < currentLogicOffset) {

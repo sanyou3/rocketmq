@@ -35,6 +35,9 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
  * 这个组件不care是CommitLog还是ConsumeQueue，这个仅仅只管理文件，至于文件存什么，最终取决于这个 MappedFileQueue 是在 CommitLog还是 ConsumeQueue 中
  * 在 CommitLog 中就是存储的是 CommitLog 的东西
  * 在 ConsumeQueue 中 存储的就是消息的算是索引吧，逻辑消费队列
+ * <p>
+ *     这里面的偏移量主要指的是物理物理偏移量
+ * </p>
  */
 public class MappedFileQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);

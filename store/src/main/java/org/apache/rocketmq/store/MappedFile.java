@@ -46,6 +46,9 @@ import sun.nio.ch.DirectBuffer;
  * 一个真正的物理磁盘上的文件对应一个MappedFile
  * 对于一个 ConsumeQueue 会有很多个 MappedFile ，一个 MappedFile 值存储一部分消息的位置信息
  * 对于一个 CommitLog 会有很多个 MappedFile ，一个 MappedFile 存储一部分消息
+ * <p>
+ * offset 指的是在整个一堆文件中的位置，pos 指的是在 当前这个文件的物理的位置
+ * </p>
  */
 public class MappedFile extends ReferenceResource {
     public static final int OS_PAGE_SIZE = 1024 * 4;
@@ -54,8 +57,16 @@ public class MappedFile extends ReferenceResource {
     private static final AtomicLong TOTAL_MAPPED_VIRTUAL_MEMORY = new AtomicLong(0);
 
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
+
+    /**
+     * 当前写的位置
+     */
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
+
+    /**
+     * 刷的位置，不是偏移量
+     */
     private final AtomicInteger flushedPosition = new AtomicInteger(0);
     protected int fileSize;
     protected FileChannel fileChannel;
@@ -399,8 +410,9 @@ public class MappedFile extends ReferenceResource {
     }
 
     /**
+     * 从当前的文件的 pos 位置开始，截取 size 大小的内容，如果size不满足，那么直接范围null，其实就是获取一定大小的文件的内容
      *
-     * @param pos 在这个文件的具体的物理位置
+     * @param pos  在这个文件的具体的物理位置
      * @param size 需要读取的字节数
      * @return
      */
@@ -425,6 +437,12 @@ public class MappedFile extends ReferenceResource {
         return null;
     }
 
+    /**
+     * 从 pos 的位置开始，截取所有可读的数据，返回
+     *
+     * @param pos 当前 MappedFile的相对位置
+     * @return
+     */
     public SelectMappedBufferResult selectMappedBuffer(int pos) {
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {

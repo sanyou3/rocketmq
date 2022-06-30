@@ -203,6 +203,13 @@ public class CommitLog {
         return this.getData(offset, offset == 0);
     }
 
+    /**
+     * 从需要读的物理的offset的偏移量开始，截取offset所在的mappedfile的能够被读的数据为止
+     *
+     * @param offset
+     * @param returnFirstOnNotFound
+     * @return
+     */
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
         // 先找到 物理偏移量 offset 在哪个 MappedFile 中
@@ -220,6 +227,7 @@ public class CommitLog {
 
     /**
      * When the normal exit, data recovery, all memory data have been flush
+     * 正常退出，启动的时候，设置当前的 CommitLog 的 flushedWhere 和 committedWhere
      */
     public void recoverNormally(long maxPhyOffsetOfConsumeQueue) {
         boolean checkCRCOnRecover = this.defaultMessageStore.getMessageStoreConfig().isCheckCRCOnRecover();
@@ -296,6 +304,7 @@ public class CommitLog {
 
     /**
      * check the message and returns the message size
+     * 根据给定的 ByteBuffer ，从里面读出一个消息的数据，解析所有的元数据，封装成一个 DispatchRequest 返回
      *
      * @return 0 Come the end of the file // >0 Normal messages // -1 Message checksum failure
      */
