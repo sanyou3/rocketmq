@@ -227,7 +227,10 @@ public class CommitLog {
 
     /**
      * When the normal exit, data recovery, all memory data have been flush
-     * 正常退出，启动的时候，设置当前的 CommitLog 的 flushedWhere 和 committedWhere
+     * 正常退出，启动的时候，设置当前的 CommitLog 的 flushedWhere 和 committedWhere 的位置，主要是通过遍历最后三个 CommitLog 文件来判断flushedWhere和committedWhere的位置
+     * 同时为了防止 CommitLog 中最新恢复的偏移量小于 ConsumeQueue 跟消息索引记录的消息的最大偏移量，当出现了这种情况，就会删除ConsumeQueue中大于最新恢复的偏移量的消息对应的消息索引
+     * 那么为什么需要删除这部分超过最新恢复的偏移量消息索引呢？其实很简单，如果保留这部分索引信息，那么消费者来消费的时候，其实根据这部分索引是找不到对应的消息的，因为 最新恢复的偏移量 压根比ConsumeQueue存的消息偏移量的小，到对应的偏移量的位置都找不到消息
+     * 至于为什么需要比遍历倒数三个文件的内容，判断每个文件的内容的消息完整性，而不是只判断最后一个文件的完整性，我觉得可能是为了防止中间消息存储不完整的问题，以防万一的举措
      */
     public void recoverNormally(long maxPhyOffsetOfConsumeQueue) {
         boolean checkCRCOnRecover = this.defaultMessageStore.getMessageStoreConfig().isCheckCRCOnRecover();
@@ -280,6 +283,9 @@ public class CommitLog {
 
             // Clear ConsumeQueue redundant data
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
+                // 这个代表什么意思？
+                // 也就是在所有的ConsumeQueue中消息的最大物理偏移量已经超过了实际的物理偏移量，
+                // 那么其实这部分数据应该是不能消费的，那么就需要丢弃，那么就遍历所有的 ConsumeQueue ，将每个 ConsumeQueue 超过 processOffset 的消息的索引都丢掉
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
             }

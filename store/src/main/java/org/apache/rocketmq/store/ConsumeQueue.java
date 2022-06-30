@@ -39,7 +39,7 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
  * ConsumeQueue 可以认为是一个门面，真正实现存储功能的是 MappedFile ，一个 ConsumeQueue 有很多个 MappedFile ，
  * 因为很简单，一个队列可能有很多的消息，那么用一个文件来存储消息的位置信息肯定是不行的，所以需要多个文件来存储，每个文件就对应一个 MappedFile
  * <p>
- * ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次查找 ConsumeQueue 的消息的内容，都是将 offset * 20 ，因为 每条消息对应的位置信息长度为 CQ_STORE_UNIT_SIZE=20.
+ * ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次查找 ConsumeQueue 的消息的内容，都是将 offset * 20 ，因为每条消息对应的位置信息长度为 CQ_STORE_UNIT_SIZE=20.
  * </p>
  */
 public class ConsumeQueue {
@@ -60,6 +60,9 @@ public class ConsumeQueue {
 
     private final String storePath;
     private final int mappedFileSize;
+    /**
+     * 这个 ConsumeQueue 中保存的消息的索引对应消息的最大的物理偏移量
+     */
     private long maxPhysicOffset = -1;
     private volatile long minLogicOffset = 0;
     private ConsumeQueueExt consumeQueueExt = null;
@@ -241,6 +244,10 @@ public class ConsumeQueue {
         return 0;
     }
 
+    /**
+     * 删除 phyOffet 之后所有的消息对应的
+     * @param phyOffet 这个消息偏移量对应的索引文件之后的索引都需要删除
+     */
     public void truncateDirtyLogicFiles(long phyOffet) {
 
         int logicFileSize = this.mappedFileSize;
@@ -263,6 +270,7 @@ public class ConsumeQueue {
 
                     if (0 == i) {
                         if (offset >= phyOffet) {
+                            // 如果当前ConsumeQueue最近的一个文件存的第一个消息的索引对应的消息的偏移量都大于需要删除的，那么直接删除这个文件
                             this.mappedFileQueue.deleteLastMappedFile();
                             break;
                         } else {

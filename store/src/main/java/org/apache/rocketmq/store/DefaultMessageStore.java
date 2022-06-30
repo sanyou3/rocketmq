@@ -71,7 +71,16 @@ import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
 /**
- * 消息存储的组件，非常非常的重要，核心组件
+ * 消息存储的组件，非常非常的重要，核心组件，主要是将跟消息存储有关的组件进行大汇总，真正的实现是委派给那些特定功能的组件实现的
+ * 改组件主要提供了一下几个功能
+ * 1）消息的存储功能，会将消息存储到CommitLog文件中，并提供了同步和异步刷盘机制（FlushConsumeQueueService的实现），异步的话默认是每0.5s中刷一次数据
+ * 2）ConsumeQueue 和 IndexService 文件的维护功能，通过 ReputMessageService 后台线程完成的，默认每1s中将未同步到ConsumeQueue和IndexService的消息同步到ConsumeQueue和IndexService中，构建对应的索引文件
+ * 3）查询消息功能，先通过 ConsumeQueue 查找到消息在 CommitLog 中的位置，然后再去 CommitLog 中查找消息的内容
+ * 4）定期清理过期文件的功能，CleanCommitLogService:清理过期的 CommitLog 的文件; CleanConsumeQueueService:清理过期的 ConsumeQueue 的文件
+ * 5) 延迟消息重投递的功能，ScheduleMessageService：通过后台定时任务，将到了延迟时间的消息重新投递到原有的真正需要投递的topic中，延迟消息最开始来的时候是存在系统的某个topic的，而不是存储在真正需要投递的topic中
+ * 6）统计功能，StoreStatsService
+ * 7）高可用，HAService 主从同步的组件，Dleger模式下是没有的 ，通过这个组件可以同步等待消息同步复制到从节点，
+ * 8）消息到达监听回调的功能，MessageArrivingListener，这个主要是唤醒那些因为长轮询获取不到消息而被挂起的请求，返回消息给客户端
  */
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -100,6 +109,9 @@ public class DefaultMessageStore implements MessageStore {
      */
     private final CleanConsumeQueueService cleanConsumeQueueService;
 
+    /**
+     * CommitLog 的索引文件，方便快速查找消息的
+     */
     private final IndexService indexService;
 
     private final AllocateMappedFileService allocateMappedFileService;
@@ -1495,7 +1507,13 @@ public class DefaultMessageStore implements MessageStore {
         return true;
     }
 
+    /**
+     * 恢复 ConsumeQueue 和 CommitLog 数据到内存中，初始化他们的属性跟关闭前的一样
+     *
+     * @param lastExitOK
+     */
     private void recover(final boolean lastExitOK) {
+        // 将每个
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
         if (lastExitOK) {
@@ -1529,6 +1547,10 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 将所有的 ConsumeQueue 进行恢复，然后找出所有的 ConsumeQueue 中最大的 物理偏移量，返回回去
+     * @return
+     */
     private long recoverConsumeQueue() {
         long maxPhysicOffset = -1;
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
