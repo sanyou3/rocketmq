@@ -29,6 +29,9 @@ import org.apache.rocketmq.remoting.common.RemotingUtil;
 import org.apache.rocketmq.remoting.netty.NettySystemConfig;
 import org.apache.rocketmq.store.SelectMappedBufferResult;
 
+/**
+ * master 节点 与每个 slave 节点 连接信息的封装
+ */
 public class HAConnection {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private final HAService haService;
@@ -37,7 +40,17 @@ public class HAConnection {
     private WriteSocketService writeSocketService;
     private ReadSocketService readSocketService;
 
+    /**
+     * 这个其实就是连接建立后，从节点第一次同步到主节点的的消息的最大偏移量，之后其实就不再动了，
+     * 这个数据其实是用来决定连接刚建立的时候，到底该从消息的哪个偏移量同步给从节点。
+     * 如果是0，说明从节点之前没同步过消息，那么就从最后一个MappedFile的起始偏移量开始同步，也就是从最后一个MappedFile开始同步
+     * 如果不为0，说明之前同步过，那只需要从已经同步过的消息之后开始同步就行了
+     */
     private volatile long slaveRequestOffset = -1;
+
+    /**
+     * 从节点确认的所同步消息的offset。从节点 收到消息之后响应给主节点，告诉主节点当前从节点同步的消息的最大的便宜量，从节点每同步一次同步的消息的最大偏移量，这个就改一次
+     */
     private volatile long slaveAckOffset = -1;
 
     public HAConnection(final HAService haService, final SocketChannel socketChannel) throws IOException {
@@ -83,6 +96,9 @@ public class HAConnection {
         return socketChannel;
     }
 
+    /**
+     * 接收从节点发送的同步到的消息的最大的偏移量的请求线程
+     */
     class ReadSocketService extends ServiceThread {
         private static final int READ_MAX_BUFFER_SIZE = 1024 * 1024;
         private final Selector selector;
@@ -201,12 +217,19 @@ public class HAConnection {
         }
     }
 
+    /**
+     * 写数据的线程，定时往从节点同步消息
+     */
     class WriteSocketService extends ServiceThread {
         private final Selector selector;
         private final SocketChannel socketChannel;
 
         private final int headerSize = 8 + 4;
         private final ByteBuffer byteBufferHeader = ByteBuffer.allocate(headerSize);
+
+        /**
+         * 下一次需要同步给从节点的消息的偏移量
+         */
         private long nextTransferFromWhere = -1;
         private SelectMappedBufferResult selectMappedBufferResult;
         private boolean lastWriteOver = true;
@@ -227,13 +250,17 @@ public class HAConnection {
                 try {
                     this.selector.select(1000);
 
+
                     if (-1 == HAConnection.this.slaveRequestOffset) {
+                        // 这个负数的判断，其实就是再等从节点上报已经同步到的消息的最大偏移量， == -1 说明刚建立连接
                         Thread.sleep(10);
                         continue;
                     }
 
                     if (-1 == this.nextTransferFromWhere) {
+                        // 第一次同步消息给从节点
                         if (0 == HAConnection.this.slaveRequestOffset) {
+                            // 如果从节点同步过来的消息的最大偏移量是0，说明这个从节点可能从来没同步过消息，那就从最后一个 MappedFile 的起始偏移量开始同步
                             long masterOffset = HAConnection.this.haService.getDefaultMessageStore().getCommitLog().getMaxOffset();
                             masterOffset =
                                 masterOffset
@@ -246,6 +273,7 @@ public class HAConnection {
 
                             this.nextTransferFromWhere = masterOffset;
                         } else {
+                            // 说明这个从节点同步过消息 ，那就从这个从节点当前同步的消息的最大偏移量开始同步
                             this.nextTransferFromWhere = HAConnection.this.slaveRequestOffset;
                         }
 
@@ -278,6 +306,7 @@ public class HAConnection {
                             continue;
                     }
 
+                    // 查找消息，这部分呢消息是返回给从节点
                     SelectMappedBufferResult selectResult =
                         HAConnection.this.haService.getDefaultMessageStore().getCommitLogData(this.nextTransferFromWhere);
                     if (selectResult != null) {
@@ -299,6 +328,7 @@ public class HAConnection {
                         this.byteBufferHeader.putInt(size);
                         this.byteBufferHeader.flip();
 
+                        // 同步消息给从节点
                         this.lastWriteOver = this.transferData();
                     } else {
 

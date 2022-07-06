@@ -49,6 +49,7 @@ import sun.nio.ch.DirectBuffer;
  * <p>
  * offset 指的是在整个一堆文件中的位置，pos 指的是在 当前这个文件的物理的位置
  * </p>
+ * 这个类主要的作用提供了很多属性和方法，然后就可以用来判断当前文件的一个状态，比如有没有写满，写到哪个位置了，刷盘刷到哪个位置了
  */
 public class MappedFile extends ReferenceResource {
     public static final int OS_PAGE_SIZE = 1024 * 4;
@@ -59,7 +60,7 @@ public class MappedFile extends ReferenceResource {
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
 
     /**
-     * 当前写的位置
+     * 当前文件写的位置 position ，不是偏移量
      */
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
@@ -68,6 +69,9 @@ public class MappedFile extends ReferenceResource {
      * 刷的位置，不是偏移量
      */
     private final AtomicInteger flushedPosition = new AtomicInteger(0);
+    /**
+     * 当前文件的总大小
+     */
     protected int fileSize;
     protected FileChannel fileChannel;
     /**
@@ -82,7 +86,7 @@ public class MappedFile extends ReferenceResource {
      */
     private String fileName;
     /**
-     * 就是文件名转过来的
+     * 就是文件名转过来的，也就是这个文件的起始的物理偏移量
      */
     private long fileFromOffset;
     private File file;
@@ -243,6 +247,7 @@ public class MappedFile extends ReferenceResource {
             } else {
                 return new AppendMessageResult(AppendMessageStatus.UNKNOWN_ERROR);
             }
+            // 更新
             this.wrotePosition.addAndGet(result.getWroteBytes());
             this.storeTimestamp = result.getStoreTimestamp();
             return result;

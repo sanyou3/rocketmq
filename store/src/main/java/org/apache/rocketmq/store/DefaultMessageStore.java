@@ -2080,6 +2080,9 @@ public class DefaultMessageStore implements MessageStore {
      */
     class ReputMessageService extends ServiceThread {
 
+        /**
+         * 从CommitLog中哪个物理偏移量开始构建 ConsumeQueue 和 IndexFile，每构建一次，这个值就会响应的增加
+         */
         private volatile long reputFromOffset = 0;
 
         public long getReputFromOffset() {
@@ -2136,6 +2139,7 @@ public class DefaultMessageStore implements MessageStore {
 
                         //遍历每个消息
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
+                            // 每循环一次读取一个消息
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();

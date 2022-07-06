@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 public class SelectMappedBufferResult {
 
     /**
-     * 此次查找的文件内容在整个文件中的offset
+     * 此次查找的文件内容在 CommitLog 中的物理偏移量
      */
     private final long startOffset;
 

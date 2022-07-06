@@ -32,8 +32,15 @@ public class TopicValidator {
      */
     public static final String RMQ_SYS_SCHEDULE_TOPIC = "SCHEDULE_TOPIC_XXXX";
     public static final String RMQ_SYS_BENCHMARK_TOPIC = "BenchmarkTest";
+    /**
+     * 事务消息还未提交前存储的topic
+     */
     public static final String RMQ_SYS_TRANS_HALF_TOPIC = "RMQ_SYS_TRANS_HALF_TOPIC";
     public static final String RMQ_SYS_TRACE_TOPIC = "RMQ_SYS_TRACE_TOPIC";
+    /**
+     * 事务消息提交或者回滚之后，就会再次将消息存到这个 RMQ_SYS_TRANS_OP_HALF_TOPIC topic 中，是为了判断哪些消息提交了，哪些消息没有提交，方便检查事务消息的状态
+     * 也就是说这个 topic 专门用来存储那些已经提交或者回滚的消息
+     */
     public static final String RMQ_SYS_TRANS_OP_HALF_TOPIC = "RMQ_SYS_TRANS_OP_HALF_TOPIC";
     public static final String RMQ_SYS_TRANS_CHECK_MAX_TIME_TOPIC = "TRANS_CHECK_MAX_TIME_TOPIC";
     public static final String RMQ_SYS_SELF_TEST_TOPIC = "SELF_TEST_TOPIC";
