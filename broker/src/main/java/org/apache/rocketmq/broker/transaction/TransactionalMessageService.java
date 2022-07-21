@@ -26,6 +26,7 @@ public interface TransactionalMessageService {
 
     /**
      * Process prepare message, in common, we should put this message to storage service.
+     * 投递事务消息，其实就是将事务消息存在对应的事务消息的topic中
      *
      * @param messageInner Prepare(Half) message.
      * @return Prepare message storage result.
@@ -34,7 +35,7 @@ public interface TransactionalMessageService {
 
     /**
      * Process prepare message in async manner, we should put this message to storage service
-     *
+     * 异步投递
      * @param messageInner Prepare(Half) message.
      * @return CompletableFuture of put result, will be completed at put success(flush and replica done)
      */
@@ -42,13 +43,14 @@ public interface TransactionalMessageService {
 
     /**
      * Delete prepare message when this message has been committed or rolled back.
-     *
+     * 删除已经提交或者回滚的消息，但是其实并没有真正的删除，只是将事务消息重新写到 RMQ_SYS_TRANS_OP_HALF_TOPIC 中..
      * @param messageExt
      */
     boolean deletePrepareMessage(MessageExt messageExt);
 
     /**
      * Invoked to process commit prepare message.
+     * 提交事务消息，其实本质就是查询一个消息，内部并没有什么复杂的逻辑操作，仅仅查询
      *
      * @param requestHeader Commit message request header.
      * @return Operate result contains prepare message and relative error code.
@@ -57,6 +59,7 @@ public interface TransactionalMessageService {
 
     /**
      * Invoked to roll back prepare message.
+     * 提交事务消息，其实本质就是查询一个消息，内部并没有什么复杂的逻辑操作，仅仅查询，跟 commitMessage 的实现逻辑一模一样
      *
      * @param requestHeader Prepare message request header.
      * @return Operate result contains prepare message and relative error code.

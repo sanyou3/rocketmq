@@ -264,6 +264,15 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
     }
 
 
+    /**
+     * 生产者生产一条消息处理
+     *
+     * @param ctx
+     * @param request
+     * @param mqtraceContext
+     * @param requestHeader
+     * @return
+     */
     private CompletableFuture<RemotingCommand> asyncSendMessage(ChannelHandlerContext ctx, RemotingCommand request,
                                                                 SendMessageContext mqtraceContext,
                                                                 SendMessageRequestHeader requestHeader) {
@@ -276,7 +285,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         final byte[] body = request.getBody();
 
+        // 消息的要放到哪个逻辑队列中
         int queueIdInt = requestHeader.getQueueId();
+        // 获取topic
         TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
 
         if (queueIdInt < 0) {
@@ -322,6 +333,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                 + "] sending transaction message is forbidden");
                 return CompletableFuture.completedFuture(response);
             }
+            //事务消息
             putMessageResult = this.brokerController.getTransactionalMessageService().asyncPrepareMessage(msgInner);
         } else {
             putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);
@@ -454,6 +466,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                         + "] sending transaction message is forbidden");
                 return response;
             }
+            //事务消息
             putMessageResult = this.brokerController.getTransactionalMessageService().prepareMessage(msgInner);
         } else {
             putMessageResult = this.brokerController.getMessageStore().putMessage(msgInner);

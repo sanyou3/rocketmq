@@ -45,6 +45,9 @@ public class MessageExt extends Message {
     private int bodyCRC;
     private int reconsumeTimes;
 
+    /**
+     * 当前这个消息原来在 存储在事务topic时对应的offset
+     */
     private long preparedTransactionOffset;
 
     public MessageExt() {

@@ -71,7 +71,16 @@ import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
 /**
- * 消息存储的组件，非常非常的重要，核心组件
+ * 消息存储的组件，非常非常的重要，核心组件，主要是将跟消息存储有关的组件进行大汇总，真正的实现是委派给那些特定功能的组件实现的
+ * 改组件主要提供了一下几个功能
+ * 1）消息的存储功能，会将消息存储到CommitLog文件中，并提供了同步和异步刷盘机制（FlushConsumeQueueService的实现），异步的话默认是每0.5s中刷一次数据
+ * 2）ConsumeQueue 和 IndexService 文件的维护功能，通过 ReputMessageService 后台线程完成的，默认每1s中将未同步到ConsumeQueue和IndexService的消息同步到ConsumeQueue和IndexService中，构建对应的索引文件
+ * 3）查询消息功能，先通过 ConsumeQueue 查找到消息在 CommitLog 中的位置，然后再去 CommitLog 中查找消息的内容
+ * 4）定期清理过期文件的功能，CleanCommitLogService:清理过期的 CommitLog 的文件; CleanConsumeQueueService:清理过期的 ConsumeQueue 的文件
+ * 5) 延迟消息重投递的功能，ScheduleMessageService：通过后台定时任务，将到了延迟时间的消息重新投递到原有的真正需要投递的topic中，延迟消息最开始来的时候是存在系统的某个topic的，而不是存储在真正需要投递的topic中
+ * 6）统计功能，StoreStatsService
+ * 7）高可用，HAService 主从同步的组件，Dleger模式下是没有的 ，通过这个组件可以同步等待消息同步复制到从节点，
+ * 8）消息到达监听回调的功能，MessageArrivingListener，这个主要是唤醒那些因为长轮询获取不到消息而被挂起的请求，返回消息给客户端
  */
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -81,29 +90,50 @@ public class DefaultMessageStore implements MessageStore {
     private final CommitLog commitLog;
 
     /**
-     * topic  队列id 消费队列
+     * topic  队列id 消费队列 ConsumeQueue
      */
     private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
     /**
-     *
+     * ConsumeQueue 的 MappedFile 的刷盘机制
      */
     private final FlushConsumeQueueService flushConsumeQueueService;
 
+    /**
+     * 清理过期的 CommitLog 的文件
+     */
     private final CleanCommitLogService cleanCommitLogService;
 
+    /**
+     * 清理过期的 ConsumeQueue 的文件
+     */
     private final CleanConsumeQueueService cleanConsumeQueueService;
 
+    /**
+     * CommitLog 的索引文件，方便快速查找消息的
+     */
     private final IndexService indexService;
 
     private final AllocateMappedFileService allocateMappedFileService;
 
+    /**
+     * 这是一个后台线程，用来同步消息到 ConsumeQueue 和 IndexFile的
+     */
     private final ReputMessageService reputMessageService;
 
+    /**
+     * 主从同步的组件，Dleger模式下是没有的
+     */
     private final HAService haService;
 
+    /**
+     * 延迟消息的处理组件
+     */
     private final ScheduleMessageService scheduleMessageService;
 
+    /**
+     * 统计组件
+     */
     private final StoreStatsService storeStatsService;
 
     private final TransientStorePool transientStorePool;
@@ -114,6 +144,9 @@ public class DefaultMessageStore implements MessageStore {
     private final ScheduledExecutorService scheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("StoreScheduledThread"));
     private final BrokerStatsManager brokerStatsManager;
+    /**
+     * 消息到达的监听器，就是当消息来的时候，会去通知等待消息的客户端消息来了
+     */
     private final MessageArrivingListener messageArrivingListener;
     private final BrokerConfig brokerConfig;
 
@@ -452,13 +485,21 @@ public class DefaultMessageStore implements MessageStore {
         return false;
     }
 
+    /**
+     * 存消息，主要是检查系统的资源、消息的合法性，如果符合要求，那么就会交由 commitLog 存消息
+     *
+     * @param msg MessageInstance to store
+     * @return
+     */
     @Override
     public CompletableFuture<PutMessageResult> asyncPutMessage(MessageExtBrokerInner msg) {
+        //判断能否存消息
         PutMessageStatus checkStoreStatus = this.checkStoreStatus();
         if (checkStoreStatus != PutMessageStatus.PUT_OK) {
             return CompletableFuture.completedFuture(new PutMessageResult(checkStoreStatus, null));
         }
 
+        // topic不能太长
         PutMessageStatus msgCheckStatus = this.checkMessage(msg);
         if (msgCheckStatus == PutMessageStatus.MESSAGE_ILLEGAL) {
             return CompletableFuture.completedFuture(new PutMessageResult(msgCheckStatus, null));
@@ -1466,7 +1507,13 @@ public class DefaultMessageStore implements MessageStore {
         return true;
     }
 
+    /**
+     * 恢复 ConsumeQueue 和 CommitLog 数据到内存中，初始化他们的属性跟关闭前的一样
+     *
+     * @param lastExitOK
+     */
     private void recover(final boolean lastExitOK) {
+        // 将每个
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
         if (lastExitOK) {
@@ -1500,6 +1547,10 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 将所有的 ConsumeQueue 进行恢复，然后找出所有的 ConsumeQueue 中最大的 物理偏移量，返回回去
+     * @return
+     */
     private long recoverConsumeQueue() {
         long maxPhysicOffset = -1;
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
@@ -1659,6 +1710,9 @@ public class DefaultMessageStore implements MessageStore {
         }, 6, TimeUnit.SECONDS);
     }
 
+    /**
+     * 构建 ConsumeQueue
+     */
     class CommitLogDispatcherBuildConsumeQueue implements CommitLogDispatcher {
 
         @Override
@@ -1676,6 +1730,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**`
+     * 构建 Index
+     */
     class CommitLogDispatcherBuildIndex implements CommitLogDispatcher {
 
         @Override
@@ -1686,6 +1743,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 清理过期的 CommitLog 的文件 也就是 MappedFile文件，默认清理72个小时没有修改的文件
+     */
     class CleanCommitLogService {
 
         private final static int MAX_MANUAL_DELETE_FILE_TIMES = 20;
@@ -2013,8 +2073,16 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 这是一个后台线程，用来同步消息到 ConsumeQueue 和 IndexFile 的
+     * 默认每隔 1s 钟就会读取CommitLog中还未构建到 ConsumeQueue 和 IndexFile 的消息，然后构建每个消息对应的 ConsumeQueue 文件和 IndexFile文件
+     * DefaultMessageStore.this.doDispatch(dispatchRequest)
+     */
     class ReputMessageService extends ServiceThread {
 
+        /**
+         * 从CommitLog中哪个物理偏移量开始构建 ConsumeQueue 和 IndexFile，每构建一次，这个值就会响应的增加
+         */
         private volatile long reputFromOffset = 0;
 
         public long getReputFromOffset() {
@@ -2063,18 +2131,22 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                //查出来一堆还未构建到ConsumeQueue的消息
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
                         this.reputFromOffset = result.getStartOffset();
 
+                        //遍历每个消息
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
+                            // 每循环一次读取一个消息
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
+                                    // 分配消息，核心逻辑
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()

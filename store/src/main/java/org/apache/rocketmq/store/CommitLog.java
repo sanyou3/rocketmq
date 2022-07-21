@@ -71,6 +71,9 @@ public class CommitLog {
     // 池化，默认都不开的
     private final FlushCommitLogService commitLogService;
 
+    /**
+     * 真正写消息到 MappedFile的文件组件，
+     */
     private final AppendMessageCallback appendMessageCallback;
     private final ThreadLocal<PutMessageThreadLocal> putMessageThreadLocal;
     protected HashMap<String/* topic-queueid */, Long/* offset */> topicQueueTable = new HashMap<String, Long>(1024);
@@ -134,6 +137,10 @@ public class CommitLog {
         return putMessageThreadLocal;
     }
 
+    /**
+     * 加载已有的 CommitLog 对应的文件
+     * @return
+     */
     public boolean load() {
         boolean result = this.mappedFileQueue.load();
         log.info("load commit log " + (result ? "OK" : "Failed"));
@@ -196,11 +203,21 @@ public class CommitLog {
         return this.getData(offset, offset == 0);
     }
 
+    /**
+     * 从需要读的物理的offset的偏移量开始，截取offset所在的mappedfile的能够被读的数据为止
+     *
+     * @param offset
+     * @param returnFirstOnNotFound
+     * @return
+     */
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
+        // 先找到 物理偏移量 offset 在哪个 MappedFile 中
         MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);
         if (mappedFile != null) {
+            // 找到 offset 在 MappedFile 中的位置
             int pos = (int) (offset % mappedFileSize);
+            // 根据位置，去查找消息
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(pos);
             return result;
         }
@@ -210,6 +227,10 @@ public class CommitLog {
 
     /**
      * When the normal exit, data recovery, all memory data have been flush
+     * 正常退出，启动的时候，设置当前的 CommitLog 的 flushedWhere 和 committedWhere 的位置，主要是通过遍历最后三个 CommitLog 文件来判断flushedWhere和committedWhere的位置
+     * 同时为了防止 CommitLog 中最新恢复的偏移量小于 ConsumeQueue 跟消息索引记录的消息的最大偏移量，当出现了这种情况，就会删除ConsumeQueue中大于最新恢复的偏移量的消息对应的消息索引
+     * 那么为什么需要删除这部分超过最新恢复的偏移量消息索引呢？其实很简单，如果保留这部分索引信息，那么消费者来消费的时候，其实根据这部分索引是找不到对应的消息的，因为 最新恢复的偏移量 压根比ConsumeQueue存的消息偏移量的小，到对应的偏移量的位置都找不到消息
+     * 至于为什么需要比遍历倒数三个文件的内容，判断每个文件的内容的消息完整性，而不是只判断最后一个文件的完整性，我觉得可能是为了防止中间消息存储不完整的问题，以防万一的举措
      */
     public void recoverNormally(long maxPhyOffsetOfConsumeQueue) {
         boolean checkCRCOnRecover = this.defaultMessageStore.getMessageStoreConfig().isCheckCRCOnRecover();
@@ -262,6 +283,9 @@ public class CommitLog {
 
             // Clear ConsumeQueue redundant data
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
+                // 这个代表什么意思？
+                // 也就是在所有的ConsumeQueue中消息的最大物理偏移量已经超过了实际的物理偏移量，
+                // 那么其实这部分数据应该是不能消费的，那么就需要丢弃，那么就遍历所有的 ConsumeQueue ，将每个 ConsumeQueue 超过 processOffset 的消息的索引都丢掉
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
             }
@@ -286,6 +310,7 @@ public class CommitLog {
 
     /**
      * check the message and returns the message size
+     * 根据给定的 ByteBuffer ，从里面读出一个消息的数据，解析所有的元数据，封装成一个 DispatchRequest 返回
      *
      * @return 0 Come the end of the file // >0 Normal messages // -1 Message checksum failure
      */
@@ -674,6 +699,7 @@ public class CommitLog {
 
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
+            // 获取最后一个MappedFile，其实很简单，因为CommitLog有很多的文件，那么每次写新的消息肯定要往最新的文件也就是最后一个文件写
             MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
             this.beginTimeInLock = beginLockTimestamp;
@@ -1332,7 +1358,7 @@ public class CommitLog {
     }
 
     /**
-     * 将消息放入 ByteBuffer中
+     * 将消息写入 MappedFile 对应的 ByteBuffer 中
      */
     class DefaultAppendMessageCallback implements AppendMessageCallback {
         // File at the end of the minimum fixed length empty
@@ -1432,6 +1458,7 @@ public class CommitLog {
 
             final long beginTimeMills = CommitLog.this.defaultMessageStore.now();
             // Write messages to the queue buffer
+            // 将编码好的消息存到 byteBuffer 中
             byteBuffer.put(preEncodeBuffer);
             msgInner.setEncodedBuff(null);
             AppendMessageResult result = new AppendMessageResult(AppendMessageStatus.PUT_OK, wroteOffset, msgLen, msgIdSupplier,

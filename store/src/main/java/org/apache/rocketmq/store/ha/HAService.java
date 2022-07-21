@@ -48,15 +48,25 @@ public class HAService {
 
     private final List<HAConnection> connectionList = new LinkedList<>();
 
+    /**
+     * 接收从节点连接请求的线程
+     */
     private final AcceptSocketService acceptSocketService;
 
     private final DefaultMessageStore defaultMessageStore;
 
     private final WaitNotifyObject waitNotifyObject = new WaitNotifyObject();
+
+    /**
+     * 当前从节点同步的消息的偏移量
+     */
     private final AtomicLong push2SlaveMaxOffset = new AtomicLong(0);
 
     private final GroupTransferService groupTransferService;
 
+    /**
+     * 这个用来向主的Master Broker 复制 消息
+     */
     private final HAClient haClient;
 
     public HAService(final DefaultMessageStore defaultMessageStore) throws IOException {
@@ -286,6 +296,7 @@ public class HAService {
         private void doWaitTransfer() {
             if (!this.requestsRead.isEmpty()) {
                 for (CommitLog.GroupCommitRequest req : this.requestsRead) {
+                    // 当从节点同步的消息偏移量大于 GroupCommitRequest 请求的消息偏移量，说明这条消息已经同步完成了
                     boolean transferOK = HAService.this.push2SlaveMaxOffset.get() >= req.getNextOffset();
                     long deadLine = req.getDeadLine();
                     while (!transferOK && deadLine - System.nanoTime() > 0) {
@@ -433,6 +444,10 @@ public class HAService {
             return true;
         }
 
+        /**
+         * 处理 主节点 同步过来的消息，就是很简单，就是读到数据，追加到 CommitLog 中，然后向主节点发送当前同步到的消息的最大的offset，就是代表从节点已经同步到的消息的最大偏移量
+         * @return
+         */
         private boolean dispatchReadRequest() {
             final int msgHeaderSize = 8 + 4; // phyoffset + size
 
@@ -456,6 +471,7 @@ public class HAService {
                         byte[] bodyData = byteBufferRead.array();
                         int dataStart = this.dispatchPosition + msgHeaderSize;
 
+                        // 将同步到的消息追加到 CommitLog 中
                         HAService.this.defaultMessageStore.appendToCommitLog(
                                 masterPhyOffset, bodyData, dataStart, bodySize);
 
@@ -482,6 +498,7 @@ public class HAService {
         private boolean reportSlaveMaxOffsetPlus() {
             boolean result = true;
             long currentPhyOffset = HAService.this.defaultMessageStore.getMaxPhyOffset();
+            // 当当前同步的消息的最大的偏移量 大于 上一次同步给主节点的消息偏移量，那么就需要同步给主节点
             if (currentPhyOffset > this.currentReportedOffset) {
                 this.currentReportedOffset = currentPhyOffset;
                 result = this.reportSlaveMaxOffset(this.currentReportedOffset);
@@ -551,6 +568,7 @@ public class HAService {
                 try {
                     if (this.connectMaster()) {
 
+                        // 默认每隔5s一定会向master节点同步自己复制消息的最大偏移量
                         if (this.isTimeToReportOffset()) {
                             boolean result = this.reportSlaveMaxOffset(this.currentReportedOffset);
                             if (!result) {
@@ -560,6 +578,7 @@ public class HAService {
 
                         this.selector.select(1000);
 
+                        // 处理读的事件
                         boolean ok = this.processReadEvent();
                         if (!ok) {
                             this.closeMaster();

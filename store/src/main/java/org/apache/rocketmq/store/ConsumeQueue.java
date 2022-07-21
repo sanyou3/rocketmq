@@ -30,13 +30,16 @@ import org.apache.rocketmq.store.config.BrokerRole;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
 /**
- * 一个 topic 一个 queueid 对应一个 ConsumeQueue ，通过ConsumeQueue可以快速的查找到消息在commitlog中的具体位置，可以理解为时一个索引文件，方便快速查找真正的消息位置
- * 通过这个组件能够快速确定 这个 topic 的 这个 queueid 的消息在 commitlog中的物理偏移量 offset
+ * <p>
+ * ConsumeQueue 是一个逻辑消费队列，什么叫逻辑呢，消息的真正的内容是存在 CommitLog 中的，但是为了消费者方便消费和管理，才产生了 ConsumeQueue 的概念，一个topic会有很多个ConsumeQueue
+ * 消费者会固定在哪些 ConsumeQueue 消费。
+ * ConsumeQueue 主要是存的消息在 CommitLog 中的物理位置，当消费者来获取消息的时候，会先通过 ConsumeQueue 中查到消息在 CommitLog位置 ，也就是物理偏移量，然后根据消息的物理偏移量到 CommitLog 中查到真正的消息返回给消费者
+ * </p>
  * <p>
  * ConsumeQueue 可以认为是一个门面，真正实现存储功能的是 MappedFile ，一个 ConsumeQueue 有很多个 MappedFile ，
  * 因为很简单，一个队列可能有很多的消息，那么用一个文件来存储消息的位置信息肯定是不行的，所以需要多个文件来存储，每个文件就对应一个 MappedFile
  * <p>
- *     ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次来消费的时候，给的offset会乘以20，因为每条消息的索引就是20个字节
+ * ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次查找 ConsumeQueue 的消息的内容，都是将 offset * 20 ，因为每条消息对应的位置信息长度为 CQ_STORE_UNIT_SIZE=20.
  * </p>
  */
 public class ConsumeQueue {
@@ -57,6 +60,9 @@ public class ConsumeQueue {
 
     private final String storePath;
     private final int mappedFileSize;
+    /**
+     * 这个 ConsumeQueue 中保存的消息的索引对应消息的最大的物理偏移量
+     */
     private long maxPhysicOffset = -1;
     private volatile long minLogicOffset = 0;
     private ConsumeQueueExt consumeQueueExt = null;
@@ -238,6 +244,10 @@ public class ConsumeQueue {
         return 0;
     }
 
+    /**
+     * 删除 phyOffet 之后所有的消息对应的
+     * @param phyOffet 这个消息偏移量对应的索引文件之后的索引都需要删除
+     */
     public void truncateDirtyLogicFiles(long phyOffet) {
 
         int logicFileSize = this.mappedFileSize;
@@ -260,6 +270,7 @@ public class ConsumeQueue {
 
                     if (0 == i) {
                         if (offset >= phyOffet) {
+                            // 如果当前ConsumeQueue最近的一个文件存的第一个消息的索引对应的消息的偏移量都大于需要删除的，那么直接删除这个文件
                             this.mappedFileQueue.deleteLastMappedFile();
                             break;
                         } else {
@@ -412,6 +423,7 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
+            // 将消息的信息存储到 ConsumeQueue 中
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
@@ -502,6 +514,9 @@ public class ConsumeQueue {
         this.byteBufferIndex.putInt(size);
         this.byteBufferIndex.putLong(tagsCode);
 
+        // cqOffset 的offset是从 0开始的。第一条 expectLogicOffset 就是期望放数据的位置，
+        // 假设是第一条数据，那么cqOffset是0，也就是expectLogicOffset=0，从第1个字节开始写 .总共写20个字节
+        // 当cqOffset是1时，也就是expectLogicOffset=20，但是是从第21个位置开始写，因为一条20个字节，第一条已经写了20个了，只能从第21个位置写
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile(expectLogicOffset);
@@ -517,6 +532,7 @@ public class ConsumeQueue {
             }
 
             if (cqOffset != 0) {
+                // 假设是第一条数据，那么currentLogicOffset是0，假设是第二个 currentLogicOffset = 20
                 long currentLogicOffset = mappedFile.getWrotePosition() + mappedFile.getFileFromOffset();
 
                 if (expectLogicOffset < currentLogicOffset) {

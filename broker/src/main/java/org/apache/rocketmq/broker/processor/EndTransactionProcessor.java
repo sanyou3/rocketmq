@@ -41,6 +41,7 @@ import org.apache.rocketmq.store.config.BrokerRole;
 
 /**
  * EndTransaction processor: process commit and rollback message
+ * 提交事务或者回滚事务的处理组件
  */
 public class EndTransactionProcessor extends AsyncNettyRequestProcessor implements NettyRequestProcessor {
     private static final InternalLogger LOGGER = InternalLoggerFactory.getLogger(LoggerName.TRANSACTION_LOGGER_NAME);
@@ -134,6 +135,7 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
                     msgInner.setPreparedTransactionOffset(requestHeader.getCommitLogOffset());
                     msgInner.setStoreTimestamp(result.getPrepareMessage().getStoreTimestamp());
                     MessageAccessor.clearProperty(msgInner, MessageConst.PROPERTY_TRANSACTION_PREPARED);
+                    // 将事务消息重新投递到目标的topic中 ，这样消费者就能够消费这条已经提交的事务消息
                     RemotingCommand sendResult = sendFinalMessage(msgInner);
                     if (sendResult.getCode() == ResponseCode.SUCCESS) {
                         this.brokerController.getTransactionalMessageService().deletePrepareMessage(result.getPrepareMessage());
@@ -143,6 +145,7 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
                 return res;
             }
         } else if (MessageSysFlag.TRANSACTION_ROLLBACK_TYPE == requestHeader.getCommitOrRollback()) {
+            // 回滚其实什么很简单，不需要将消息投递到目标的topic
             result = this.brokerController.getTransactionalMessageService().rollbackMessage(requestHeader);
             if (result.getResponseCode() == ResponseCode.SUCCESS) {
                 RemotingCommand res = checkPrepareMessage(result.getPrepareMessage(), requestHeader);
@@ -217,6 +220,12 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
         return msgInner;
     }
 
+    /**
+     * 将事务消息重新投递到目标的topic中
+     *
+     * @param msgInner
+     * @return
+     */
     private RemotingCommand sendFinalMessage(MessageExtBrokerInner msgInner) {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);
         final PutMessageResult putMessageResult = this.brokerController.getMessageStore().putMessage(msgInner);
