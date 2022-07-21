@@ -738,10 +738,14 @@ public class CommitLog {
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
         //提交主从复制的请求
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
+        //刷盘 和 主从复制 两个异步任务通过thenCombine联合
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
+            // 当两个任务都完成的时候，就回调
+            // 如果刷盘没有成功，那么就将消息存储的状态设置为失败
             if (flushStatus != PutMessageStatus.PUT_OK) {
                 putMessageResult.setPutMessageStatus(flushStatus);
             }
+            // 如果主从复制没有成功，那么就将消息存储的状态设置为失败
             if (replicaStatus != PutMessageStatus.PUT_OK) {
                 putMessageResult.setPutMessageStatus(replicaStatus);
             }
