@@ -95,17 +95,37 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     private static final long BROKER_SUSPEND_MAX_TIME_MILLIS = 1000 * 15;
     private static final long CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND = 1000 * 30;
     private final InternalLogger log = ClientLogger.getLog();
+
+    /**
+     * 配置
+     */
     private final DefaultMQPushConsumer defaultMQPushConsumer;
 
     /**
      * 重平衡，用来重新决定消费者消费哪些队列的消息
      */
     private final RebalanceImpl rebalanceImpl = new RebalancePushImpl(this);
+
+    /**
+     * 一些钩子的回调，主要是扩展用的，不用care
+     */
     private final ArrayList<FilterMessageHook> filterMessageHookList = new ArrayList<FilterMessageHook>();
     private final long consumerStartTimestamp = System.currentTimeMillis();
+    /**
+     * 一些钩子的回调，主要是扩展用的
+     */
     private final ArrayList<ConsumeMessageHook> consumeMessageHookList = new ArrayList<ConsumeMessageHook>();
+    /**
+     * 也是个钩子
+     */
     private final RPCHook rpcHook;
+    /**
+     * 当前组件的一个转台
+     */
     private volatile ServiceState serviceState = ServiceState.CREATE_JUST;
+    /**
+     * 一个客户端组件，存了客户端的一些信息
+     */
     private MQClientInstance mQClientFactory;
     private PullAPIWrapper pullAPIWrapper;
     private volatile boolean pause = false;
@@ -222,6 +242,11 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         this.offsetStore = offsetStore;
     }
 
+    /**
+     * 处理正在拉取消息的代码
+     *
+     * @param pullRequest
+     */
     public void pullMessage(final PullRequest pullRequest) {
         final ProcessQueue processQueue = pullRequest.getProcessQueue();
         if (processQueue.isDropped()) {
@@ -596,7 +621,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                 this.checkConfig();
 
-                //订阅重试消息的topic
+                // 将订阅的 topic 的信息放到 重平衡组件，并且在集群模式下，会为每个topic构建重试的topic
                 this.copySubscription();
 
                 if (this.defaultMQPushConsumer.getMessageModel() == MessageModel.CLUSTERING) {
@@ -844,6 +869,10 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         }
     }
 
+    /**
+     *
+     * @throws MQClientException
+     */
     private void copySubscription() throws MQClientException {
         try {
             Map<String, String> sub = this.defaultMQPushConsumer.getSubscription();

@@ -49,11 +49,22 @@ import org.apache.rocketmq.common.utils.ThreadUtils;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
+/**
+ * 并发消费消息，当来了一批消息的时候，会将消息达成一个一个 list ，然后交由线程池处理消息
+ */
 public class ConsumeMessageConcurrentlyService implements ConsumeMessageService {
     private static final InternalLogger log = ClientLogger.getLog();
     private final DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
     private final DefaultMQPushConsumer defaultMQPushConsumer;
+
+    /**
+     * 这个就是用户自定义消息处理的逻辑
+     */
     private final MessageListenerConcurrently messageListener;
+
+    /**
+     * 消费消息的请求
+     */
     private final BlockingQueue<Runnable> consumeRequestQueue;
 
     /**

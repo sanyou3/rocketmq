@@ -58,6 +58,10 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.netty.ResponseFuture;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 管理的组件，最终委派给 MQClientAPIImpl 来发送真正的请求
+ * 相当于一个控制台的组件
+ */
 public class MQAdminImpl {
 
     private final InternalLogger log = ClientLogger.getLog();

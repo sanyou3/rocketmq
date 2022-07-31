@@ -86,13 +86,20 @@ import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
- * MQ 客户端实例数据 ，一个客户端id 对应一个这个实例 ，客户端id = {@link ClientConfig#buildMQClientId()}
+ * MQ 客户端实例数据 ，一个客户端id 对应一个这个实例 ，客户端id = {@link ClientConfig#buildMQClientId()}，如果没有什么特殊的配置，可以理解为一台机器一个MQClientInstance
+ *
+ * 这个类存储了所有的元信息，比如有哪些生产者组，有哪些消费者组，有哪些broker，地址在哪，
+ * 可以理解为一个控制组件，通过这个组件可以获取到这台机器所有的信息
  */
 public class MQClientInstance {
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
     private final InternalLogger log = ClientLogger.getLog();
     private final ClientConfig clientConfig;
     private final int instanceIndex;
+
+    /**
+     * {@link ClientConfig#buildMQClientId()}
+     */
     private final String clientId;
     private final long bootTimestamp = System.currentTimeMillis();
 
@@ -102,18 +109,27 @@ public class MQClientInstance {
     private final ConcurrentMap<String/* group */, MQProducerInner> producerTable = new ConcurrentHashMap<String, MQProducerInner>();
 
     /**
-     * 消费者组 id 对应的实现
+     * 每个消费者组对应一个 MQConsumerInner
      */
     private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
+    /**
+     *
+     */
     private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
 
-
+    /**
+     *
+     */
     private final NettyClientConfig nettyClientConfig;
+
+    /**
+     * api层，客户端 跟 broker 进行网络交互的组件
+     */
     private final MQClientAPIImpl mQClientAPIImpl;
     private final MQAdminImpl mQAdminImpl;
 
     /**
-     * 主题和对应的主题信息
+     * topic 对应的 元信息
      */
     private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
 
@@ -135,22 +151,32 @@ public class MQClientInstance {
     });
 
     /**
-     * 调用客户端的api
+     * 客户端处理broker请求的组件
      */
     private final ClientRemotingProcessor clientRemotingProcessor;
 
     /**
-     * 用来从客户端拉取消息
+     * 在 push 模式下，这个用来处理从broker拉取消息请求的组件，有一个线程，会去处理每个拉取消息的请求
      */
     private final PullMessageService pullMessageService;
 
     /**
-     * 这是一个线程，用来拉取消息的，项目一起动就会启动这个线程
+     * 重平衡组件，每隔20s会去重平衡所有的消费者组，但是最终的实现还是由不同的消费者组的消费模式实现{@link MQConsumerInner}
      */
     private final RebalanceService rebalanceService;
+    /**
+     * 当前这个 MQClientInstance 的配置信息
+     */
     private final DefaultMQProducer defaultMQProducer;
+    /**
+     * 消费者统计的组件
+     */
     private final ConsumerStatsManager consumerStatsManager;
     private final AtomicLong sendHeartbeatTimesTotal = new AtomicLong(0);
+
+    /**
+     * 当前组件的状态
+     */
     private ServiceState serviceState = ServiceState.CREATE_JUST;
     private Random random = new Random();
 

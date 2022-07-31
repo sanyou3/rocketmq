@@ -39,14 +39,14 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
  * ConsumeQueue 可以认为是一个门面，真正实现存储功能的是 MappedFile ，一个 ConsumeQueue 有很多个 MappedFile ，
  * 因为很简单，一个队列可能有很多的消息，那么用一个文件来存储消息的位置信息肯定是不行的，所以需要多个文件来存储，每个文件就对应一个 MappedFile
  * <p>
- * ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号。累加的。每次查找 ConsumeQueue 的消息的内容，都是将 offset * 20 ，因为每条消息对应的位置信息长度为 CQ_STORE_UNIT_SIZE=20.
+ * ConsumeQueue没有去care自己的offset，因为ConsumeQueue的offset是一步一步累加的，来可以理解为每个消息的编号，累加的，并且每个内容的长度是固定的 CQ_STORE_UNIT_SIZE=20个字节。每次查找 ConsumeQueue 的消息的内容，都是将 offset * 20 ，其实就得到每个内容的物理偏移量.
  * </p>
  */
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
     /**
-     * 每个消息对应的在 ConsumeQueue 中的内容的长度
+     * ConsumeQueue 中存储的每个内容的长度
      */
     public static final int CQ_STORE_UNIT_SIZE = 20;
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);

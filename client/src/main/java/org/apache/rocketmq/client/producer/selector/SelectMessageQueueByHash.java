@@ -25,6 +25,7 @@ public class SelectMessageQueueByHash implements MessageQueueSelector {
 
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
+        // 这个可以实现同一个 arg 的消息发送到同一个队列中，实现顺序性
         int value = arg.hashCode() % mqs.size();
         if (value < 0) {
             value = Math.abs(value);

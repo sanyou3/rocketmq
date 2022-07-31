@@ -56,18 +56,26 @@ public abstract class RebalanceImpl {
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
 
     /**
-     * 一个消费者订阅的主题 和 主题 对应的 消息队列
+     * topic和这个topic所有的queue的映射关系
      */
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
             new ConcurrentHashMap<String, Set<MessageQueue>>();
 
     /**
-     * 消费者订阅的主题 和 订阅消息的过滤信息
+     * topic 跟 对这个topic订阅信息的映射
      */
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
             new ConcurrentHashMap<String, SubscriptionData>();
+
+    /**
+     * 这个重平衡组件所属消费者组
+     */
     protected String consumerGroup;
     protected MessageModel messageModel;
+
+    /**
+     * 队列的分配机制，用来决定哪些同一个消费者组中不同的消费者所订阅的queue的信息
+     */
     protected AllocateMessageQueueStrategy allocateMessageQueueStrategy;
     protected MQClientInstance mQClientFactory;
 
@@ -257,8 +265,9 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * 根据主题进行重平衡
-     *
+     * 根据topic进行重平衡
+     * BROADCASTING：不根据 AllocateMessageQueueStrategy 分配需要消费的queue
+     * CLUSTERING：根据 AllocateMessageQueueStrategy 分配需要消费的queue
      * @param topic
      * @param isOrder
      */
@@ -304,6 +313,7 @@ public abstract class RebalanceImpl {
                     Collections.sort(mqAll);
                     Collections.sort(cidAll);
 
+                    // 获取到队列重分配的组件
                     AllocateMessageQueueStrategy strategy = this.allocateMessageQueueStrategy;
 
                     List<MessageQueue> allocateResult = null;

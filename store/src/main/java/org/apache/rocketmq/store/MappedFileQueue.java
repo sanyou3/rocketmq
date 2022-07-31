@@ -36,7 +36,7 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
  * 在 CommitLog 中就是存储的是 CommitLog 的东西
  * 在 ConsumeQueue 中 存储的就是消息的算是索引吧，逻辑消费队列
  * <p>
- *     这里面的偏移量主要指的是物理物理偏移量
+ *     这里面的偏移量主要指的是物理偏移量
  * </p>
  */
 public class MappedFileQueue {
@@ -52,6 +52,9 @@ public class MappedFileQueue {
      */
     protected final int mappedFileSize;
 
+    /**
+     * 具体的每个文件
+     */
     protected final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
 
     private final AllocateMappedFileService allocateMappedFileService;

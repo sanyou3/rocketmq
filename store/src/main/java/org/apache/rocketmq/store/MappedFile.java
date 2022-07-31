@@ -63,6 +63,9 @@ public class MappedFile extends ReferenceResource {
      * 当前文件写的位置 position ，不是偏移量
      */
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
+    /**
+     * 提交的位置
+     */
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
 
     /**

@@ -73,7 +73,7 @@ import org.apache.rocketmq.store.stats.BrokerStatsManager;
 /**
  * 消息存储的组件，非常非常的重要，核心组件，主要是将跟消息存储有关的组件进行大汇总，真正的实现是委派给那些特定功能的组件实现的
  * 改组件主要提供了一下几个功能
- * 1）消息的存储功能，会将消息存储到CommitLog文件中，并提供了同步和异步刷盘机制（FlushConsumeQueueService的实现），异步的话默认是每0.5s中刷一次数据
+ * 1）消息的存储功能，会将消息存储到 CommitLog 文件中，并提供了同步和异步刷盘机制（FlushConsumeQueueService的实现），异步的话默认是每0.5s中刷一次数据
  * 2）ConsumeQueue 和 IndexService 文件的维护功能，通过 ReputMessageService 后台线程完成的，默认每1s中将未同步到ConsumeQueue和IndexService的消息同步到ConsumeQueue和IndexService中，构建对应的索引文件
  * 3）查询消息功能，先通过 ConsumeQueue 查找到消息在 CommitLog 中的位置，然后再去 CommitLog 中查找消息的内容
  * 4）定期清理过期文件的功能，CleanCommitLogService:清理过期的 CommitLog 的文件; CleanConsumeQueueService:清理过期的 ConsumeQueue 的文件
@@ -117,7 +117,7 @@ public class DefaultMessageStore implements MessageStore {
     private final AllocateMappedFileService allocateMappedFileService;
 
     /**
-     * 这是一个后台线程，用来同步消息到 ConsumeQueue 和 IndexFile的
+     * 这是一个后台线程，用来构建 ConsumeQueue 和 IndexFile 的
      */
     private final ReputMessageService reputMessageService;
 
@@ -608,6 +608,10 @@ public class DefaultMessageStore implements MessageStore {
 
     /**
      * 获取消息的实现，消费者来拉取消息主要是通过这个方法来实现消息的查找
+     * 先根据 topic 和 queueId 找到对应的 ConsumeQueue ，
+     * 然后根据 offset 读取 ConsumeQueue 的内容，
+     * 再然后解析 遍历内容 ，找到消息对应的物理的偏移量和消息存储数据的大小，
+     * 最后根据 物理的偏移量和消息存储数据的大小 去 CommitLog 中查找真正的消息的数据
      *
      * @param group         Consumer group that launches this query.
      * @param topic         Topic to query.
@@ -2089,6 +2093,11 @@ public class DefaultMessageStore implements MessageStore {
             return reputFromOffset;
         }
 
+        /**
+         * 刚启动的时候会去设置应该从哪个offset开始构建 ConsumeQueue和IndexFile
+         *
+         * @param reputFromOffset
+         */
         public void setReputFromOffset(long reputFromOffset) {
             this.reputFromOffset = reputFromOffset;
         }
@@ -2159,6 +2168,7 @@ public class DefaultMessageStore implements MessageStore {
                                         notifyMessageArrive4MultiQueue(dispatchRequest);
                                     }
 
+                                    // 构建ConsumeQueue的消息的offset对应的相加
                                     this.reputFromOffset += size;
                                     readSize += size;
                                     if (DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole() == BrokerRole.SLAVE) {

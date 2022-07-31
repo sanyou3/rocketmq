@@ -168,6 +168,11 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 import com.alibaba.fastjson.JSON;
 
+/**
+ * 真正跟broker交互的类，api类，封装了网络请求
+ * 通过这个类可以给broker发送请求，处理相应的业务
+ * 最后需要向broker发送请求的时候，一定会通过这个类来操作
+ */
 public class MQClientAPIImpl {
 
     private final static InternalLogger log = ClientLogger.getLog();
@@ -461,6 +466,7 @@ public class MQClientAPIImpl {
         String msgType = msg.getProperty(MessageConst.PROPERTY_MESSAGE_TYPE);
         boolean isReply = msgType != null && msgType.equals(MixAll.REPLY_MESSAGE_FLAG);
         if (isReply) {
+            // reply 消息，正常的生产者产生的消息不是reply 消息，reply 消息是消费者消费完消息的时候，用生产者的角色发送消息给broker的消息，此时消息会带有reply消息的flag
             if (sendSmartMsg) {
                 SendMessageRequestHeaderV2 requestHeaderV2 = SendMessageRequestHeaderV2.createSendMessageRequestHeaderV2(requestHeader);
                 request = RemotingCommand.createRequestCommand(RequestCode.SEND_REPLY_MESSAGE_V2, requestHeaderV2);
@@ -799,6 +805,15 @@ public class MQClientAPIImpl {
         return this.processPullResponse(response, addr);
     }
 
+    /**
+     * 处理拉消息的响应
+     *
+     * @param response
+     * @param addr
+     * @return
+     * @throws MQBrokerException
+     * @throws RemotingCommandException
+     */
     private PullResult processPullResponse(
         final RemotingCommand response,
         final String addr) throws MQBrokerException, RemotingCommandException {

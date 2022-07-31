@@ -68,7 +68,7 @@ public class CommitLog {
     private final FlushCommitLogService flushCommitLogService;
 
     //If TransientStorePool enabled, we must flush message to FileChannel at fixed periods
-    // 池化，默认都不开的
+    // 池化，默认都不开的，默认这个组件是没用的
     private final FlushCommitLogService commitLogService;
 
     /**
@@ -87,6 +87,10 @@ public class CommitLog {
     private volatile Set<String> fullStorePaths = Collections.emptySet();
 
     private final MultiDispatch multiDispatch;
+
+    /**
+     * 用来判断等待同步刷盘结果有没有超时的线程，配合 GroupCommitService 使用的，这两个都是处理一个
+     */
     private final FlushDiskWatcher flushDiskWatcher;
 
     public CommitLog(final DefaultMessageStore defaultMessageStore) {
@@ -1123,11 +1127,9 @@ public class CommitLog {
 
     /**
      * 异步刷盘 异步刷盘也有两种机制，是根据配置文件来决定的，二选一，默认是第一种
-     * 1）一种是定时异步刷，也就是每隔0.5s刷一次盘，
-     * 2）还有一种就是来一条消息刷一次，但是也是异步的
-     * 默认每次刷4页，不足4页就不刷，也就是说，也就是靠这种刷盘机制，可能会有少于4页的数据刷不到磁盘
-     * <p>
-     * 因为每隔0.5s刷一次盘或者有数据就刷的要求默认至少有4页的数据才会刷，可能会有少于4页的数据刷不到磁盘，
+     * 1）一种是定时异步刷，也就是每隔0.5s触发一次刷盘，
+     * 2）还有一种就是来一条消息触发一次刷盘，但是也是异步的
+     * 默认每次刷4页，不足4页就不刷，也就是说如果触发了刷盘，内存的页数少于4，也是不会去刷盘的，也就是仅靠靠这种刷盘机制，可能会有少于4页的数据刷不到磁盘
      * 为了彻底地将少于4页的数据刷到磁盘，默认每隔10s中就强制刷一次所有的数据到磁盘，所以理论上每隔10s中，磁盘的数据和内存中的数据是一样的
      */
     class FlushRealTimeService extends FlushCommitLogService {
@@ -1248,7 +1250,8 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
-     * 同步刷盘
+     * 同步刷盘，这个组件是用来判断同步刷盘的结果的，每条消息来的时候，会构建对应的一个等待消息同步刷盘结果的请求，
+     * 放到requestsWrite队列中，然后这个线程会去处理这个请求，来判断通过刷盘 有没有成功
      */
     class GroupCommitService extends FlushCommitLogService {
         // 这里之所以搞两个集合就是一种减少锁占用时间的锁优化策略

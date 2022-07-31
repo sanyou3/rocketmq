@@ -59,6 +59,10 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
  * 这些topic可以理解为一个中转的topic，因为有延迟，所以消息一旦刚到达的时候是不会直接放到目标的topic的，而是放在这个中转的topic的
  * 然后会开启定时任务，当消息达到了延迟的时间，会重新将消息重新通过 DefaultMessageStore 写入消息到真正目标的topic
  * 放在这个中转的topic的还有一个好处，那就是延迟的消息也可以实现持久化，这样就不怕丢消息了
+ * <p>
+ *     每个延迟级别都有对应的一个 Queue ， 相同延迟级别的消息都放在同一个Queue中，两者的关系为 queueId = delayLevel - 1，
+ *     所以根据延迟级别就很容易查找该延迟级别的消息应该存储在哪个 Queue 中（注意不是真的存储，只是可以通过这个Queue 进行查找）
+ * </p>
  */
 public class ScheduleMessageService extends ConfigManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -69,9 +73,15 @@ public class ScheduleMessageService extends ConfigManager {
     private static final long WAIT_FOR_SHUTDOWN = 5000L;
     private static final long DELAY_FOR_A_SLEEP = 10L;
 
+    /**
+     * 延迟级别和延迟时间的映射关系表
+     */
     private final ConcurrentMap<Integer /* level */, Long/* delay timeMillis */> delayLevelTable =
         new ConcurrentHashMap<Integer, Long>(32);
 
+    /**
+     * 延迟级别和已经重新投递的消息的ConsumeQueue的offset
+     */
     private final ConcurrentMap<Integer /* level */, Long/* offset */> offsetTable =
         new ConcurrentHashMap<Integer, Long>(32);
     private final DefaultMessageStore defaultMessageStore;
@@ -140,6 +150,7 @@ public class ScheduleMessageService extends ConfigManager {
             if (this.enableAsyncDeliver) {
                 this.handleExecutorService = new ScheduledThreadPoolExecutor(this.maxDelayLevel, new ThreadFactoryImpl("ScheduleMessageExecutorHandleThread_"));
             }
+            // 遍历所有的延迟级别
             for (Map.Entry<Integer, Long> entry : this.delayLevelTable.entrySet()) {
                 Integer level = entry.getKey();
                 Long timeDelay = entry.getValue();
@@ -152,6 +163,7 @@ public class ScheduleMessageService extends ConfigManager {
                     if (this.enableAsyncDeliver) {
                         this.handleExecutorService.schedule(new HandlePutResultTask(level), FIRST_DELAY_TIME, TimeUnit.MILLISECONDS);
                     }
+                    // 每个延迟级别构建一个延迟级别处理的任务，1s中后执行
                     this.deliverExecutorService.schedule(new DeliverDelayedMessageTimerTask(level, offset), FIRST_DELAY_TIME, TimeUnit.MILLISECONDS);
                 }
             }
@@ -346,8 +358,19 @@ public class ScheduleMessageService extends ConfigManager {
         return msgInner;
     }
 
+    /**
+     * 延迟消息重新投递到目标topic的任务
+     */
     class DeliverDelayedMessageTimerTask implements Runnable {
+
+        /**
+         * 延迟级别
+         */
         private final int delayLevel;
+
+        /**
+         * 指的是  ConsumeQueue 中的 offset
+         */
         private final long offset;
 
         public DeliverDelayedMessageTimerTask(int delayLevel, long offset) {
@@ -375,6 +398,7 @@ public class ScheduleMessageService extends ConfigManager {
 
             long result = deliverTimestamp;
 
+            //
             long maxTimestamp = now + ScheduleMessageService.this.delayLevelTable.get(this.delayLevel);
             if (deliverTimestamp > maxTimestamp) {
                 result = now;
@@ -384,6 +408,7 @@ public class ScheduleMessageService extends ConfigManager {
         }
 
         public void executeOnTimeup() {
+            // 根据延迟级别查找到这个延迟级别对应的 ConsumeQueue
             ConsumeQueue cq =
                 ScheduleMessageService.this.defaultMessageStore.findConsumeQueue(TopicValidator.RMQ_SYS_SCHEDULE_TOPIC,
                     delayLevel2QueueId(delayLevel));
@@ -393,6 +418,7 @@ public class ScheduleMessageService extends ConfigManager {
                 return;
             }
 
+            // 根据 offset 查找到一堆消息
             SelectMappedBufferResult bufferCQ = cq.getIndexBuffer(this.offset);
             if (bufferCQ == null) {
                 long resetOffset;
@@ -414,6 +440,7 @@ public class ScheduleMessageService extends ConfigManager {
             try {
                 int i = 0;
                 ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
+                // 遍历每个消息
                 for (; i < bufferCQ.getSize() && isStarted(); i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
                     long offsetPy = bufferCQ.getByteBuffer().getLong();
                     int sizePy = bufferCQ.getByteBuffer().getInt();
@@ -432,6 +459,7 @@ public class ScheduleMessageService extends ConfigManager {
                     }
 
                     long now = System.currentTimeMillis();
+                    // 获取到应该投递
                     long deliverTimestamp = this.correctDeliverTimestamp(now, tagsCode);
                     nextOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
@@ -453,6 +481,7 @@ public class ScheduleMessageService extends ConfigManager {
                         continue;
                     }
 
+                    // 前面的校验都通过，重新投递消息
                     boolean deliverSuc;
                     if (ScheduleMessageService.this.enableAsyncDeliver) {
                         deliverSuc = this.asyncDeliver(msgInner, msgExt.getMsgId(), offset, offsetPy, sizePy);
@@ -473,6 +502,7 @@ public class ScheduleMessageService extends ConfigManager {
                 bufferCQ.release();
             }
 
+            // 消息遍历完了，然后重新创建一个定时任务，100ms后执行
             this.scheduleNextTimerTask(nextOffset, DELAY_FOR_A_WHILE);
         }
 

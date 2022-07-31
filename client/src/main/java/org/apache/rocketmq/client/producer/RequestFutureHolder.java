@@ -46,6 +46,9 @@ public class RequestFutureHolder {
         return requestFutureTable;
     }
 
+    /**
+     * 扫描过期的请求
+     */
     private void scanExpiredRequest() {
         final List<RequestResponseFuture> rfList = new LinkedList<RequestResponseFuture>();
         Iterator<Map.Entry<String, RequestResponseFuture>> it = requestFutureTable.entrySet().iterator();

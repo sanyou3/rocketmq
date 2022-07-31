@@ -39,7 +39,7 @@ public interface ConsumeMessageService {
     int getCorePoolSize();
 
     /**
-     * 这个是直接处理消息，而不是开多线程执行
+     * 当broker向客户端发送消费消息的请求时，那么就是由这个方法处理broker的请求，消费消息
      *
      * @param msg
      * @param brokerName
@@ -48,7 +48,7 @@ public interface ConsumeMessageService {
     ConsumeMessageDirectlyResult consumeMessageDirectly(final MessageExt msg, final String brokerName);
 
     /**
-     * 提交执行消息的请求，交由线程池处理
+     * 提交消费消息的请求，当消息来的时候
      *
      * @param msgs
      * @param processQueue

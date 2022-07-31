@@ -41,11 +41,17 @@ import org.apache.rocketmq.store.DefaultMessageStore;
 import org.apache.rocketmq.store.PutMessageSpinLock;
 import org.apache.rocketmq.store.PutMessageStatus;
 
+/**
+ * 高可用组件，实现主从消息同步的核心组件。在Dleger模式下，这个组件是没用的...
+ */
 public class HAService {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
     private final AtomicInteger connectionCount = new AtomicInteger(0);
 
+    /**
+     * 从节点跟当前主节点建立的连接对象的集合
+     */
     private final List<HAConnection> connectionList = new LinkedList<>();
 
     /**
@@ -58,14 +64,19 @@ public class HAService {
     private final WaitNotifyObject waitNotifyObject = new WaitNotifyObject();
 
     /**
-     * 当前从节点同步的消息的偏移量
+     * 从节点已经同步到的消息的最大偏移量
+     * 之所以需要知道从节点同步到的消息的最大偏移量是因为对于同步复制消息的模式来说，生产者发送消息成功之后，
+     * 需要知道主节点将消息同步给从节点的结果，通过这个最大的偏移量就能够判断，当最大的偏移量大于消息的偏移量，那么消息就肯定同步成功了，所以这个变量的作用在这
      */
     private final AtomicLong push2SlaveMaxOffset = new AtomicLong(0);
 
+    /**
+     * 这个是处理等待同步刷消息到从节点结果的线程
+     */
     private final GroupTransferService groupTransferService;
 
     /**
-     * 这个用来向主的Master Broker 复制 消息
+     *  从节点在与主节点交互的线程
      */
     private final HAClient haClient;
 
@@ -337,14 +348,24 @@ public class HAService {
         }
     }
 
+    /**
+     * 从节点在与主节点交互的线程，负责读取主节点发过来的消息，存到CommitLog中，同时也会上报同步到的消息的最大偏移量给主节点
+     */
     class HAClient extends ServiceThread {
         private static final int READ_MAX_BUFFER_SIZE = 1024 * 1024 * 4;
         private final AtomicReference<String> masterAddress = new AtomicReference<>();
+
+        /**
+         * 用来上报偏移量的 ByteBuffer
+         */
         private final ByteBuffer reportOffset = ByteBuffer.allocate(8);
         private SocketChannel socketChannel;
         private Selector selector;
         private long lastWriteTimestamp = System.currentTimeMillis();
 
+        /**
+         * 当前上报给主节点所同步消息的最大偏移量，如果是刚连接主节点，那么就会从CommitLog中读取已经同步的消息的偏移量给主节点
+         */
         private long currentReportedOffset = 0;
         private int dispatchPosition = 0;
         private ByteBuffer byteBufferRead = ByteBuffer.allocate(READ_MAX_BUFFER_SIZE);

@@ -24,6 +24,9 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 
+/**
+ * topic的元信息的封装，封装了这个 topic 在哪些broker上，并且么个 broker 有哪些queue
+ */
 public class TopicPublishInfo {
 
     /**
@@ -37,7 +40,7 @@ public class TopicPublishInfo {
     private boolean haveTopicRouterInfo = false;
 
     /**
-     * 消息队列的基本信息
+     * 这个消息分布在哪些队列中，也就是在哪些broker中的哪些queue上
      */
     private List<MessageQueue> messageQueueList = new ArrayList<MessageQueue>();
 
