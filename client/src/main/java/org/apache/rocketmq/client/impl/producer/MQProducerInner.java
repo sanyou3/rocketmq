@@ -22,19 +22,46 @@ import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.protocol.header.CheckTransactionStateRequestHeader;
 
+/**
+ * 一个生产者组对应一个实例
+ */
 public interface MQProducerInner {
+
+    /**
+     * 获取这个生产者组的往那些topic发送过消息
+     * @return
+     */
     Set<String> getPublishTopicList();
 
     boolean isPublishTopicNeedUpdate(final String topic);
 
     TransactionCheckListener checkListener();
+
+    /**
+     * 获取本地事务的监听器
+     *
+     * @return
+     */
     TransactionListener getCheckListener();
 
+    /**
+     * 检查本地事务的状态，这个是当broker向客户端发送检查本地事务的状态的时候会回调
+     *
+     *
+     * @param addr
+     * @param msg
+     * @param checkRequestHeader
+     */
     void checkTransactionState(
         final String addr,
         final MessageExt msg,
         final CheckTransactionStateRequestHeader checkRequestHeader);
 
+    /**
+     * 更新 topic 的信息
+     * @param topic
+     * @param info
+     */
     void updateTopicPublishInfo(final String topic, final TopicPublishInfo info);
 
     boolean isUnitMode();

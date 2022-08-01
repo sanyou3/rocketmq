@@ -156,11 +156,13 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
 
     /**
      * Minimum consumer thread number
+     * 消费者组的消费线程池的最小线程数
      */
     private int consumeThreadMin = 20;
 
     /**
      * Max consumer thread number
+     * 消费者组的消费线程池的最大线程数
      */
     private int consumeThreadMax = 20;
 
@@ -177,6 +179,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
     /**
      * Flow control threshold on queue level, each message queue will cache at most 1000 messages by default,
      * Consider the {@code pullBatchSize}, the instantaneous value may exceed the limit
+     *
+     * 流量控制，当有这么多消息在客户端还没消费的话，那么就不往
      */
     private int pullThresholdForQueue = 1000;
 

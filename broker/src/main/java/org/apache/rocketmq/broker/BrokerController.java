@@ -440,7 +440,7 @@ public class BrokerController {
                     @Override
                     public void run() {
                         try {
-                        BrokerController.this.brokerOuterAPI.fetchNa~meServerAddr();
+                        BrokerController.this.brokerOuterAPI.fetchNameServerAddr();
                         } catch (Throwable e) {
                             log.error("ScheduledTask fetchNameServerAddr exception", e);
                         }

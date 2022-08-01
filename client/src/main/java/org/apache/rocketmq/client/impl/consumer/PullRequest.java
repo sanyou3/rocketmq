@@ -20,6 +20,7 @@ import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
  * 从broker中获取消息的请求，一个消费者中一个队列只对应一个这个对象
+ * 当消费者开始对某些queue进行消费的时候，就会构建这个对象，然后开始不停的拉消息
  */
 public class PullRequest {
 
@@ -29,7 +30,7 @@ public class PullRequest {
     private String consumerGroup;
 
     /**
-     * 消息队列
+     * 从指定的broker中去拉取指定的topic的queue中去获取消息
      */
     private MessageQueue messageQueue;
 
@@ -39,7 +40,7 @@ public class PullRequest {
     private ProcessQueue processQueue;
 
     /**
-     * 下一次获取消息的偏移量
+     * 下一次获取消息的其实偏移量
      */
     private long nextOffset;
     private boolean previouslyLocked = false;

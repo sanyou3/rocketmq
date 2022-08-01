@@ -59,6 +59,10 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
  *
  * <p> <strong>Thread Safety:</strong> After configuring and starting process, this class can be regarded as thread-safe
  * and used among multiple threads context. </p>
+ *
+ * <p>
+ *     这个类给我的感觉像是个配置类，具体的行为都是交给 DefaultMQProducerImpl 来实现的
+ * </p>
  */
 public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
@@ -112,7 +116,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * Maximum number of retry to perform internally before claiming sending failure in synchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
-     * 重试次数，默认重试 2 次，说明会调用三次
+     * 重试次数，默认重试 2 次，说明会调用三次 只对同步调用生效，异步/单向调用没有重试
      */
     private int retryTimesWhenSendFailed = 2;
 
@@ -120,11 +124,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * Maximum number of retry to perform internally before claiming sending failure in asynchronous mode. </p>
      *
      * This may potentially cause message duplication which is up to application developers to resolve.
+     * 异步发送消息重试次数
      */
     private int retryTimesWhenSendAsyncFailed = 2;
 
     /**
      * Indicate whether to retry another broker on sending failure internally.
+     * 这个是开启重试机制 ，跟 retryTimesWhenSendFailed  配合使用
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 

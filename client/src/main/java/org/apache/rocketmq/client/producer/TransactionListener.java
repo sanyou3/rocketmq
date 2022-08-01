@@ -19,9 +19,13 @@ package org.apache.rocketmq.client.producer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 
+/**
+ * 事务消息
+ */
 public interface TransactionListener {
     /**
      * When send transactional prepare(half) message succeed, this method will be invoked to execute local transaction.
+     * 消息发送成功之后，会执行这个方法，返回的是本地事务的执行状态
      *
      * @param msg Half(prepare) message
      * @param arg Custom business parameter

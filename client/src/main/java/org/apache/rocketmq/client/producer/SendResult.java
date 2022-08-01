@@ -32,10 +32,16 @@ public class SendResult {
     private String msgId;
 
     /**
-     * 消息队列
+     * 消息发送的目标的队列
      */
     private MessageQueue messageQueue;
+    /**
+     * 消息在queue的offset
+     */
     private long queueOffset;
+    /**
+     * 事务消息的话返回事务消息的id
+     */
     private String transactionId;
     private String offsetMsgId;
     private String regionId;

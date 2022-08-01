@@ -52,7 +52,7 @@ public class RouteInfoManager {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
-     * 一个topic 是可以分布在不用的broker上的  一个topic对应付多个broker
+     * 一个topic 是可以分布在不用的broker上的  一个topic对应多个broker
      */
     private final HashMap<String/* topic */, List<QueueData>> topicQueueTable;
     /**

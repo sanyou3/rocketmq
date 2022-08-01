@@ -26,7 +26,7 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.CommitLog.GroupCommitRequest;
 
 /**
- * 这个组件跟同步刷盘是有关系的组件，主要是用来判断同步刷盘有没有超时用的
+ * 这个组件跟同步刷盘是有关系的组件，主要是用来判断等待同步刷盘结果有没有超时的线程
  */
 public class FlushDiskWatcher extends ServiceThread {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);

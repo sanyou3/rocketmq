@@ -21,9 +21,18 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
+/**
+ * 查找消息结果的封装
+ */
 public class GetMessageResult {
 
+    /**
+     * 消息查找结果的分装
+     */
     private final List<SelectMappedBufferResult> messageMapedList;
+    /**
+     * 消息数据对应的内存区域
+     */
     private final List<ByteBuffer> messageBufferList;
 
     private GetMessageStatus status;

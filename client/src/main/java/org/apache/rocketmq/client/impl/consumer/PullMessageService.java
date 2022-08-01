@@ -29,10 +29,10 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.utils.ThreadUtils;
 
 /**
- * 这个是用来 处理 从broker拉取消息的服务
- * 内部维护了一个阻塞队列，当有拉取的请求过来，就会从处理拉取的请求
- *
- * 一个客户端就一个
+ * 拉取消息的处理服务
+ * <p>
+ * 拉取消息的时候，不是直接就往 broker 直接发送请求，而是将请求存到一个阻塞队列中，由一个线程慢慢去处理这些拉取消息的请求
+ * </P>
  */
 public class PullMessageService extends ServiceThread {
     private final InternalLogger log = ClientLogger.getLog();
@@ -50,6 +50,11 @@ public class PullMessageService extends ServiceThread {
         this.mQClientFactory = mQClientFactory;
     }
 
+    /**
+     * 等一定时间之后，将请求放到队中，具有延迟的效果
+     * @param pullRequest
+     * @param timeDelay
+     */
     public void executePullRequestLater(final PullRequest pullRequest, final long timeDelay) {
         if (!isStopped()) {
             this.scheduledExecutorService.schedule(new Runnable() {
@@ -93,6 +98,9 @@ public class PullMessageService extends ServiceThread {
         }
     }
 
+    /**
+     * 处理拉取消息的请求
+     */
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");

@@ -31,6 +31,15 @@ import org.apache.rocketmq.store.SelectMappedBufferResult;
 
 /**
  * master 节点 与每个 slave 节点 连接信息的封装
+ * 这个组件是用来同步消息的组件。
+ *
+ * <p>
+ * 从节点在与主节点建立连接成功之后，主节点会封装一个 HAConnection 对象，（从节点会封装一个 HAClient 线程，来跟主节点进行交互）
+ * 然后针对这个 HAConnection 连接开启两个线程 ReadSocketService 和 WriteSocketService
+ * ReadSocketService： 负责接收从节点返回的所同步消息的最大偏移量。这里比较绕，什么叫所同步消息的最大偏移量，
+ * 因为主节点会向从节点同步消息，那么主节点得知道从节点接收到的消息到哪了，所以需要从节点返回这个偏移量，这个偏移量就是所同步消息的最大偏移量
+ * WriteSocketService：这个组件就是主节点读取CommitLog中的消息同步给从节点的线程
+ * </p>
  */
 public class HAConnection {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
