@@ -674,12 +674,15 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
+                // 根据 consumequeue的偏移量，查找数据
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
                         status = GetMessageStatus.NO_MATCHED_MESSAGE;
 
                         long nextPhyFileStartOffset = Long.MIN_VALUE;
+
+                        //当前读到的所有消息中的最大的物理偏移量
                         long maxPhyOffsetPulling = 0;
 
                         int i = 0;
@@ -764,9 +767,14 @@ public class DefaultMessageStore implements MessageStore {
 
                         nextBeginOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
+                        // 当前commitLog的最大的物理偏移量和当前读的消息的最大的物理偏移量之差
                         long diff = maxOffsetPy - maxPhyOffsetPulling;
+
+                        // 内存大小的 40%
                         long memory = (long) (StoreUtil.TOTAL_PHYSICAL_MEMORY_SIZE
                             * (this.messageStoreConfig.getAccessMessageInMemoryMaxRatio() / 100.0));
+
+                        // 如果当前剩余未读的消息的偏移量，其实也算是大小超过了内存的 40% ，那么就建议从从节点读消息，因为读的太慢了
                         getResult.setSuggestPullingFromSlave(diff > memory);
                     } finally {
 

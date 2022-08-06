@@ -46,6 +46,13 @@ public class DLedgerRoleChangeHandler implements DLedgerLeaderElector.RoleChange
         this.dLegerServer = dLedgerCommitLog.getdLedgerServer();
     }
 
+    /**
+     * 处理当前节点的状态变化，当成为candidate或者是follower的时候，会把当前broker的角色设置成Slave，改brokerid
+     * 当成为leader的时候，将角色设置成SYNC_MASTER，然后brokerid设置成0，也就是master broker id
+     *
+     * @param term
+     * @param role
+     */
     @Override public void handle(long term, MemberState.Role role) {
         Runnable runnable = new Runnable() {
             @Override public void run() {
@@ -72,7 +79,7 @@ public class DLedgerRoleChangeHandler implements DLedgerLeaderElector.RoleChange
                                     break;
                                 }
                                 if (dLegerServer.getdLedgerStore().getLedgerEndIndex() == dLegerServer.getdLedgerStore().getCommittedIndex()
-                                    && messageStore.dispatchBehindBytes() == 0) {
+                                        && messageStore.dispatchBehindBytes() == 0) {
                                     break;
                                 }
                                 Thread.sleep(100);

@@ -58,7 +58,8 @@ import org.apache.rocketmq.remoting.netty.NettyRemotingClient;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
- * broker 跟 nameser 交互的组件
+ * broker 跟 主动向其他角色发送请求的组件
+ * 比如向其他broker发送请求，向namserver发送请求
  */
 public class BrokerOuterAPI {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
