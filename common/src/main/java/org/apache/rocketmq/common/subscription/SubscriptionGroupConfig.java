@@ -37,6 +37,9 @@ public class SubscriptionGroupConfig {
 
     private long brokerId = MixAll.MASTER_ID;
 
+    /**
+     * 当消费的比较慢的时候，会建议消费者从节点id为这个的值的那个从节点读取，默认是1
+     */
     private long whichBrokerWhenConsumeSlowly = 1;
 
     private boolean notifyConsumerIdsChangedEnable = true;
