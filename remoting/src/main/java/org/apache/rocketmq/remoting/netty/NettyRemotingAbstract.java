@@ -54,6 +54,7 @@ import org.apache.rocketmq.remoting.protocol.RemotingSysResponseCode;
 
 /**
  * 是 NettyServer 和 NettyClient 的抽象父类，主要是提供了 发送请求 和 接收响应 的功能
+ * 定义了客户端和服务端之间的通信协议
  */
 public abstract class NettyRemotingAbstract {
 
