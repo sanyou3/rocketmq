@@ -240,6 +240,10 @@ public abstract class RebalanceImpl {
         }
     }
 
+    /**
+     * 重平衡入口
+     * @param isOrder
+     */
     public void doRebalance(final boolean isOrder) {
         //获取消费者订阅的主题 和 主题的过滤信息
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();

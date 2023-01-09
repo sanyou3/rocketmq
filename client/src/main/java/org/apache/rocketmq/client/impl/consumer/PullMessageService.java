@@ -52,6 +52,7 @@ public class PullMessageService extends ServiceThread {
 
     /**
      * 等一定时间之后，将请求放到队中，具有延迟的效果
+     *
      * @param pullRequest
      * @param timeDelay
      */
@@ -128,5 +129,7 @@ public class PullMessageService extends ServiceThread {
     public String getServiceName() {
         return PullMessageService.class.getSimpleName();
     }
+
+
 
 }
