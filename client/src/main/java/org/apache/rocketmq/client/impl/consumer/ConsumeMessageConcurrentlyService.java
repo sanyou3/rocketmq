@@ -104,6 +104,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
     }
 
     public void start() {
+        //开启一个定时任务，然后每隔15分钟移除超过15分钟还未被消费的消息
         this.cleanExpireMsgExecutors.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -293,6 +294,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 List<MessageExt> msgBackFailed = new ArrayList<MessageExt>(consumeRequest.getMsgs().size());
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
+                    //重新发送消息，之后就可以被重新消费了
                     boolean result = this.sendMessageBack(msg, context);
                     if (!result) {
                         msg.setReconsumeTimes(msg.getReconsumeTimes() + 1);
@@ -415,7 +417,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                         MessageAccessor.setConsumeStartTimeStamp(msg, String.valueOf(System.currentTimeMillis()));
                     }
                 }
-                //消费消息
+                //调用实现的监听器来处理消息
                 status = listener.consumeMessage(Collections.unmodifiableList(msgs), context);
             } catch (Throwable e) {
                 log.warn(String.format("consumeMessage exception: %s Group: %s Msgs: %s MQ: %s",
@@ -449,6 +451,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                     ConsumeMessageConcurrentlyService.this.consumerGroup,
                     msgs,
                     messageQueue);
+                //如果出现异常，消费的状态改成 RECONSUME_LATER，也就是随后重复消费的意思
                 status = ConsumeConcurrentlyStatus.RECONSUME_LATER;
             }
 

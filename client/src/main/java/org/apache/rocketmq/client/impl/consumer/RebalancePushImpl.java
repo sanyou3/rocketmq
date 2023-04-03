@@ -164,11 +164,13 @@ public class RebalancePushImpl extends RebalanceImpl {
                     result = lastOffset;
                 }
                 // First start,no offset
+                // 第一次消费这个队列
                 else if (-1 == lastOffset) {
                     if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         result = 0L;
                     } else {
                         try {
+                            //从最大的offset开始消费
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
                         } catch (MQClientException e) {
                             log.warn("Compute consume offset from last offset exception, mq={}, exception={}", mq, e);
