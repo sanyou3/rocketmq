@@ -41,6 +41,9 @@ import org.apache.rocketmq.srvutil.ServerUtil;
 import org.apache.rocketmq.srvutil.ShutdownHookThread;
 import org.slf4j.LoggerFactory;
 
+/**
+ * namesrv 启动类
+ */
 public class NamesrvStartup {
 
     private static InternalLogger log;
@@ -72,6 +75,7 @@ public class NamesrvStartup {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         //PackageConflictDetect.detectFastjson();
 
+        // 解析启动命令行的参数
         Options options = ServerUtil.buildCommandlineOptions(new Options());
         commandLine = ServerUtil.parseCmdLine("mqnamesrv", args, buildCommandlineOptions(options), new PosixParser());
         if (null == commandLine) {
@@ -79,12 +83,17 @@ public class NamesrvStartup {
             return null;
         }
 
+        //Namesrv配置项
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
+
+        //Namesrv关于网络的配置项
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+        //namesrv 服务默认端口 9876
         nettyServerConfig.setListenPort(9876);
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
             if (file != null) {
+                //参数中有带 -c 参数，指定了配置文件的路径，就读取文件的数据，设置到Namesrv的配置项
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
                 properties.load(in);
@@ -99,12 +108,14 @@ public class NamesrvStartup {
         }
 
         if (commandLine.hasOption('p')) {
+            //这个就是打印参数的意思
             InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_CONSOLE_NAME);
             MixAll.printObjectProperties(console, namesrvConfig);
             MixAll.printObjectProperties(console, nettyServerConfig);
             System.exit(0);
         }
 
+        //这个就是配置项的参数
         MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), namesrvConfig);
 
         if (null == namesrvConfig.getRocketmqHome()) {

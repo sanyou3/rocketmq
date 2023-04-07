@@ -113,7 +113,7 @@ import org.apache.rocketmq.store.stats.BrokerStatsManager;
 import org.apache.rocketmq.store.stats.LmqBrokerStatsManager;
 
 /**
- * 对外提供操作的接口
+ * broker整体的控制类，里面包含了broker几乎所有的核心组件
  */
 public class BrokerController {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
@@ -137,14 +137,40 @@ public class BrokerController {
      */
     private final ConsumerManager consumerManager;
     private final ConsumerFilterManager consumerFilterManager;
+    /**
+     * 生产者管理的组件
+     */
     private final ProducerManager producerManager;
     private final ClientHousekeepingService clientHousekeepingService;
+
+    /**
+     * 处理消费者拉取消息请求的组件
+     */
     private final PullMessageProcessor pullMessageProcessor;
+    /**
+     * 这个组件是长轮询组件，所谓长轮询就是一旦发现没有消息可以被拉取，直接将请求挂起，当有消息再返回给消费者
+     * 这个组件就是保存挂起的请求
+     */
     private final PullRequestHoldService pullRequestHoldService;
+    /**
+     * 消息监听的组件，一旦有消息就会会调这个组件
+     */
     private final MessageArrivingListener messageArrivingListener;
+
+    /**
+     * 这个组件是 broker 主动向生产者、消费者发起请求的组件，作为客户端
+     */
     private final Broker2Client broker2Client;
     private final SubscriptionGroupManager subscriptionGroupManager;
+
+    /**
+     * 一旦有消费者上线或者下线，那么就会回调这个组件，做一个后置的事
+     */
     private final ConsumerIdsChangeListener consumerIdsChangeListener;
+
+    /**
+     * 重平衡加锁
+     */
     private final RebalanceLockManager rebalanceLockManager = new RebalanceLockManager();
     private final BrokerOuterAPI brokerOuterAPI;
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl(

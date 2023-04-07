@@ -25,7 +25,7 @@ import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 /**
- * 消费者 id 变化之后监听器 ，监听 消费者组的各个事件 ConsumerGroupEvent
+ * 消费者上线下线之后监听器
  */
 public class DefaultConsumerIdsChangeListener implements ConsumerIdsChangeListener {
     private final BrokerController brokerController;
@@ -47,6 +47,7 @@ public class DefaultConsumerIdsChangeListener implements ConsumerIdsChangeListen
                 List<Channel> channels = (List<Channel>) args[0];
                 if (channels != null && brokerController.getBrokerConfig().isNotifyConsumerIdsChangedEnable()) {
                     for (Channel chl : channels) {
+                        //通知这个消费者组的每个消费者消费者数量有变化，可以执行重平衡操作
                         this.brokerController.getBroker2Client().notifyConsumerIdsChanged(chl, group);
                     }
                 }

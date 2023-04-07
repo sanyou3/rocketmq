@@ -21,13 +21,34 @@
 package org.apache.rocketmq.common.protocol.route;
 
 /**
- *
+ * queue的信息
  */
 public class QueueData implements Comparable<QueueData> {
+
+    /**
+     * queue所属的broker
+     */
     private String brokerName;
+
+    /**
+     * 读队列的数量
+     */
     private int readQueueNums;
+
+    /**
+     * 写队列的数量，默认两个是相等的
+     * rocketmq设置读写队列数的目的在于方便队列的缩容和扩容。
+     */
     private int writeQueueNums;
+
+    /**
+     * Topic的读写模式 是否只读，是否只写
+     */
     private int perm;
+
+    /**
+     * 是不是系统topic，RocketMQ内部也会创建很多自己需要的topic，内部使用的
+     */
     private int topicSysFlag;
 
     public int getReadQueueNums() {

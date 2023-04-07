@@ -46,6 +46,12 @@ import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.sysflag.TopicSysFlag;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 
+/**
+ *
+ * 当 broker 启动的时候，会往namesrv 注册broker信息，这些信息会保存这里面，被称为路由信息
+ *
+ * 这个类主要就是路由信息的crud的功能
+ */
 public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
@@ -329,6 +335,13 @@ public class RouteInfoManager {
         return topicCnt;
     }
 
+    /**
+     * broker下线
+     * @param clusterName
+     * @param brokerAddr
+     * @param brokerName
+     * @param brokerId
+     */
     public void unregisterBroker(
         final String clusterName,
         final String brokerAddr,
@@ -469,7 +482,7 @@ public class RouteInfoManager {
     }
 
     /**
-     * 定时会调用这个方法，剔除不活跃的broker
+     * 定时会调用这个方法，剔除长时间没有发送心跳的broker，因为长时间没发送心跳，说明这个broker可能挂了
      */
     public void scanNotActiveBroker() {
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
@@ -480,12 +493,21 @@ public class RouteInfoManager {
                 RemotingUtil.closeChannel(next.getValue().getChannel());
                 it.remove();
                 log.warn("The broker channel expired, {} {}ms", next.getKey(), BROKER_CHANNEL_EXPIRED_TIME);
+                // 移除这个broker的信息
                 this.onChannelDestroy(next.getKey(), next.getValue().getChannel());
             }
         }
     }
 
+    /**
+     * broker 和 namesrv 长连接断开了，那么就移除这个broker的信息
+     *
+     * @param remoteAddr
+     * @param channel
+     */
     public void onChannelDestroy(String remoteAddr, Channel channel) {
+
+        // 根据连接，从 brokerLiveTable 中找到连接对应的broker的地址
         String brokerAddrFound = null;
         if (channel != null) {
             try {
@@ -519,6 +541,7 @@ public class RouteInfoManager {
             try {
                 try {
                     this.lock.writeLock().lockInterruptibly();
+                    //心跳信息移除
                     this.brokerLiveTable.remove(brokerAddrFound);
                     this.filterServerTable.remove(brokerAddrFound);
                     String brokerNameFound = null;

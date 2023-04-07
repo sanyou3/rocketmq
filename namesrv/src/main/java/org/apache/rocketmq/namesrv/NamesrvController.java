@@ -40,7 +40,10 @@ import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.apache.rocketmq.remoting.netty.TlsSystemConfig;
 import org.apache.rocketmq.srvutil.FileWatchService;
 
-
+/**
+ * 这是Namesrv整体的控制类，Namesrv的几乎核心的组件都在这个，可以通过NamesrvController获取到一些核心组件
+ * Namesrv整体比较简单，就是存储broker和topic的信息
+ */
 public class NamesrvController {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
 
@@ -80,6 +83,8 @@ public class NamesrvController {
         this.namesrvConfig = namesrvConfig;
         this.nettyServerConfig = nettyServerConfig;
         this.kvConfigManager = new KVConfigManager(this);
+
+        // 路由信息，非常重要的组件
         this.routeInfoManager = new RouteInfoManager();
         this.brokerHousekeepingService = new BrokerHousekeepingService(this);
         this.configuration = new Configuration(
@@ -93,13 +98,16 @@ public class NamesrvController {
 
         this.kvConfigManager.load();
 
+        //创建一个Netty server服务，接口来自broker，生产者、消费者的请求
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
+        //注册处理，用来处理broker，生产者、消费者的请求，这个也是很重要，处理请求的开头
         this.registerProcessor();
 
+        //开启定时任务，定期处理那些没有心跳，差不多就是挂了的broker
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -108,6 +116,7 @@ public class NamesrvController {
             }
         }, 5, 10, TimeUnit.SECONDS);
 
+        //开启定时任务，持久话配置
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -116,6 +125,7 @@ public class NamesrvController {
             }
         }, 1, 10, TimeUnit.MINUTES);
 
+        //这个跟ssl相关，不用太care
         if (TlsSystemConfig.tlsMode != TlsMode.DISABLED) {
             // Register a listener to reload SslContext
             try {
@@ -163,7 +173,7 @@ public class NamesrvController {
             this.remotingServer.registerDefaultProcessor(new ClusterTestRequestProcessor(this, namesrvConfig.getProductEnvName()),
                 this.remotingExecutor);
         } else {
-
+            //注册一个请求处理器，用来处理broker、生产者、消费的请求
             this.remotingServer.registerDefaultProcessor(new DefaultRequestProcessor(this), this.remotingExecutor);
         }
     }

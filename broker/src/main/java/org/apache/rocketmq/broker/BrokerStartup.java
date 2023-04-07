@@ -104,17 +104,17 @@ public class BrokerStartup {
             // Broker的配置
             final BrokerConfig brokerConfig = new BrokerConfig();
 
-            // 作为 netty server 时的配置 netty server时主要是接口客户端的消息 ，比如生产者或者消费者
+            // 作为 broker作为服务端 时的配置 ， broker作为服务端时会接收服务端，会接口生产者消费的请求
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
 
-            // 作为 netty client 时的配置 netty client 主要是向请求 name server 发送请求
+            // 作为 broker作为客户端 时的配置 broker作为客户端时会向namesrv发送请求
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
 
             nettyClientConfig.setUseTLS(Boolean.parseBoolean(System.getProperty(TLS_ENABLE,
                 String.valueOf(TlsSystemConfig.tlsMode == TlsMode.ENFORCING))));
             nettyServerConfig.setListenPort(10911);
 
-            // 消息存储的配置
+            // 消息存储的配置，就是跟消息存储有关的配置
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
 
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
@@ -149,6 +149,7 @@ public class BrokerStartup {
                 System.exit(-2);
             }
 
+            // 处理namesrv的地址，可以有多个，用;隔开
             String namesrvAddr = brokerConfig.getNamesrvAddr();
             if (null != namesrvAddr) {
                 try {
@@ -164,6 +165,7 @@ public class BrokerStartup {
                 }
             }
 
+            // 判断当前broker是主节点还是从节点，主节点默认brokerid为0，为0就是主节点
             switch (messageStoreConfig.getBrokerRole()) {
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
@@ -181,12 +183,15 @@ public class BrokerStartup {
             }
 
             if (messageStoreConfig.isEnableDLegerCommitLog()) {
+                // 开启DLeger这种高可用模式，这个模式底下主节点是选举出来的，所以设为-1 ，
+                // 假如当前broker选举成主节点，那么还是会把设为0
                 brokerConfig.setBrokerId(-1);
             }
 
+            //主从同步模式下，假如这个broker是主节点，那么需要接收从节点的请求，这个端口就是用来监听从节点请求的
             messageStoreConfig.setHaListenPort(nettyServerConfig.getListenPort() + 1);
 
-            //底下是一下日志的配置
+            //底下是一下日志的配置，解析配置，打印参数
             LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
             JoranConfigurator configurator = new JoranConfigurator();
             configurator.setContext(lc);
@@ -224,7 +229,7 @@ public class BrokerStartup {
             MixAll.printObjectProperties(log, messageStoreConfig);
 
 
-            // 构建 BrokerController
+            // 构建 BrokerController，核心逻辑
             final BrokerController controller = new BrokerController(
                 brokerConfig,
                 nettyServerConfig,

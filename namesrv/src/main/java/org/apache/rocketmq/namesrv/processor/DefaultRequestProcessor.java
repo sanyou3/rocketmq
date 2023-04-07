@@ -61,7 +61,7 @@ import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
- * name server 所有的请求的处理处理的组件
+ * name server 处理来自broker、生产者、消费者所有的请求的处理处理的组件
  */
 public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implements NettyRequestProcessor {
     private static InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
@@ -107,7 +107,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
             case RequestCode.UNREGISTER_BROKER:
                 return this.unregisterBroker(ctx, request);
 
-            // tipoc的数据管理
+            // tipoc的数据管理，查询路由信息
             case RequestCode.GET_ROUTEINFO_BY_TOPIC:
                 return this.getRouteInfoByTopic(ctx, request);
             case RequestCode.GET_BROKER_CLUSTER_INFO:
