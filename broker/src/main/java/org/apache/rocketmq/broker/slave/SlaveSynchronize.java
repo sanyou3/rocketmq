@@ -50,9 +50,13 @@ public class SlaveSynchronize {
     }
 
     public void syncAll() {
+        //同步topic的信息
         this.syncTopicConfig();
+        //同步消费者的消费进度
         this.syncConsumerOffset();
+        //同步延迟偏移量
         this.syncDelayOffset();
+        //同步订阅组的消息
         this.syncSubscriptionGroupConfig();
     }
 

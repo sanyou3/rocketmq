@@ -31,6 +31,10 @@ import org.apache.rocketmq.remoting.annotation.CFNotNull;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 import org.apache.rocketmq.remoting.exception.RemotingCommandException;
 
+/**
+ * 这个是RocketMQ一个核心的组件，主要是用于对于请求或者是响应参数的封装，所有的请求最终都需要封装成RemotingCommand对象，
+ * 然后通过NettyRemotingClient或者NettyRemotingServer将请求发送出去
+ */
 public class RemotingCommand {
     public static final String SERIALIZE_TYPE_PROPERTY = "rocketmq.serialize.type";
     public static final String SERIALIZE_TYPE_ENV = "ROCKETMQ_SERIALIZE_TYPE";
@@ -69,6 +73,9 @@ public class RemotingCommand {
         }
     }
 
+    /**
+     * 请求的类型 ，代表这个请求是干啥的，{@link org.apache.rocketmq.common.protocol.RequestCode}
+     */
     private int code;
     private LanguageCode language = LanguageCode.JAVA;
     private int version = 0;

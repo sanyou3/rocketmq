@@ -23,7 +23,9 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
 /**
+ * 线程封装类，rocketmq内部会有很多继承这个线程的类，其实就是单独一个线程，专门来处理一些任务的
  *
+ * 继承了Runnable接口，所有子类需要重写run方法，run方法就是这个线程核心代码
  */
 public abstract class ServiceThread implements Runnable {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
@@ -37,6 +39,10 @@ public abstract class ServiceThread implements Runnable {
      * true 说明处于唤醒状态，不需要等待  一次等待，一次休眠，这样交替进行
      */
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
+
+    /**
+     * 线程是否要停止，一般线程在启动之后就不会停止，除非broker关闭了，那么会将这个状态设置为true
+     */
     protected volatile boolean stopped = false;
     protected boolean isDaemon = false;
 
@@ -133,6 +139,12 @@ public abstract class ServiceThread implements Runnable {
         }
     }
 
+    /**
+     * 让当前线程处于等待状态
+     * 唤醒有两种情况，一种就是到了等待的时间、一种就是通过 {@link #waitPoint} 唤醒，这里会设计到线程间的通信
+     *
+     * @param interval 等待时间
+     */
     protected void waitForRunning(long interval) {
         // 如果一进来就是唤醒的状态，那么就不用休眠了，直接就返回，
         if (hasNotified.compareAndSet(true, false)) {
@@ -145,6 +157,7 @@ public abstract class ServiceThread implements Runnable {
         waitPoint.reset();
 
         try {
+            //等待
             waitPoint.await(interval, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             log.error("Interrupted", e);
@@ -157,6 +170,11 @@ public abstract class ServiceThread implements Runnable {
     protected void onWaitEnd() {
     }
 
+    /**
+     * 这个线程是否停止
+     *
+     * @return
+     */
     public boolean isStopped() {
         return stopped;
     }

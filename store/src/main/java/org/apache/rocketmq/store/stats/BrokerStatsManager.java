@@ -27,6 +27,9 @@ import org.apache.rocketmq.common.stats.MomentStatsItemSet;
 import org.apache.rocketmq.common.stats.StatsItem;
 import org.apache.rocketmq.common.stats.StatsItemSet;
 
+/**
+ * broker的一些数据统计的信息
+ */
 public class BrokerStatsManager {
 
     public static final String QUEUE_PUT_NUMS = "QUEUE_PUT_NUMS";

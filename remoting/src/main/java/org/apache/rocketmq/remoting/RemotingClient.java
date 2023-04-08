@@ -26,7 +26,7 @@ import org.apache.rocketmq.remoting.netty.NettyRequestProcessor;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
- * 调用远程的api
+ * 作为客户端时的通信组件的封装
  */
 public interface RemotingClient extends RemotingService {
 
@@ -34,18 +34,62 @@ public interface RemotingClient extends RemotingService {
 
     List<String> getNameServerAddressList();
 
+    /**
+     * 同步发送，发送成功之后同步等待响应结果
+     *
+     * @param addr          向哪个服务端地址发送消息
+     * @param request
+     * @param timeoutMillis
+     * @return RemotingCommand 响应结果
+     * @throws InterruptedException
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     */
     RemotingCommand invokeSync(final String addr, final RemotingCommand request,
         final long timeoutMillis) throws InterruptedException, RemotingConnectException,
         RemotingSendRequestException, RemotingTimeoutException;
 
+    /**
+     * 异步发送，也就是响应发送成功之后不需要同步等待响应结果
+     *
+     * @param addr 向哪个服务端地址发送消息
+     * @param request
+     * @param timeoutMillis
+     * @param invokeCallback 响应结果的回调，当请求有响应之后，会回调这个invokeCallback来处理响应结果
+     * @throws InterruptedException
+     * @throws RemotingConnectException
+     * @throws RemotingTooMuchRequestException
+     * @throws RemotingTimeoutException
+     * @throws RemotingSendRequestException
+     */
     void invokeAsync(final String addr, final RemotingCommand request, final long timeoutMillis,
         final InvokeCallback invokeCallback) throws InterruptedException, RemotingConnectException,
         RemotingTooMuchRequestException, RemotingTimeoutException, RemotingSendRequestException;
 
+    /**
+     * 单向通信，意思就是发送请求之后不管响应结果
+     *
+     * @param addr 向哪个服务端地址发送消息
+     * @param request
+     * @param timeoutMillis 超时时间
+     * @throws InterruptedException
+     * @throws RemotingConnectException
+     * @throws RemotingTooMuchRequestException
+     * @throws RemotingTimeoutException
+     * @throws RemotingSendRequestException
+     */
     void invokeOneway(final String addr, final RemotingCommand request, final long timeoutMillis)
         throws InterruptedException, RemotingConnectException, RemotingTooMuchRequestException,
         RemotingTimeoutException, RemotingSendRequestException;
 
+    /**
+     * 注册请求的处理器，客户端也有可能主动接收到服务端的请求，所以也需要注册
+     *
+     * @param requestCode
+     * @param processor
+     * @param executor
+     */
     void registerProcessor(final int requestCode, final NettyRequestProcessor processor,
         final ExecutorService executor);
 

@@ -114,6 +114,11 @@ import org.apache.rocketmq.store.stats.LmqBrokerStatsManager;
 
 /**
  * broker整体的控制类，里面包含了broker几乎所有的核心组件
+ *
+ * broker在启动过程中会经过一下几个阶段
+ * 1) 构造，就是一些赋值操作
+ * 2) {@link #initialize} 调用这个方法，初始化操作，加载一些磁盘文件，启动监听 RemotingServer ，处理来自生产者、消费者的请求
+ * 3) {@link #start()} 开启一堆后台线程用来定时处理一些后台任务、启动任务
  */
 public class BrokerController {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
@@ -169,13 +174,24 @@ public class BrokerController {
     private final ConsumerIdsChangeListener consumerIdsChangeListener;
 
     /**
-     * 重平衡加锁
+     * 重平衡加锁，顺序消费时重平衡的时候有加锁的逻辑
      */
     private final RebalanceLockManager rebalanceLockManager = new RebalanceLockManager();
+    /**
+     * broker 跟 主动向其他角色发送请求的组件
+     */
     private final BrokerOuterAPI brokerOuterAPI;
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl(
         "BrokerControllerScheduledThread"));
+
+    /**
+     * 主从同步的组件，当当前broker是从节点时需要向主节点发送请求，同步一些元数据信息
+     */
     private final SlaveSynchronize slaveSynchronize;
+
+    /**
+     * 下面就是一堆阻塞队列
+     */
     private final BlockingQueue<Runnable> sendThreadPoolQueue;
     private final BlockingQueue<Runnable> putThreadPoolQueue;
     private final BlockingQueue<Runnable> pullThreadPoolQueue;
@@ -185,14 +201,40 @@ public class BrokerController {
     private final BlockingQueue<Runnable> heartbeatThreadPoolQueue;
     private final BlockingQueue<Runnable> consumerManagerThreadPoolQueue;
     private final BlockingQueue<Runnable> endTransactionThreadPoolQueue;
+
+
     private final FilterServerManager filterServerManager;
+
+    /**
+     * 统计用的，不用太care
+     */
     private final BrokerStatsManager brokerStatsManager;
+
+    /**
+     * 回调的钩子，扩展用的，目前没有具体的实现，不用太care
+     */
     private final List<SendMessageHook> sendMessageHookList = new ArrayList<SendMessageHook>();
     private final List<ConsumeMessageHook> consumeMessageHookList = new ArrayList<ConsumeMessageHook>();
+
+    /**
+     * 消息存储组价，非常重要
+     */
     private MessageStore messageStore;
+
+    /**
+     * 当前broker作为服务端时的通信组件，接收来自生产者、消费者等的请求，非常重要
+     */
     private RemotingServer remotingServer;
+    /**
+     * fastRemotingServer 其实跟 remotingServer作用差不多，都是处理接收来自生产者、消费者等的请求，但是fastRemotingServer不处理拉取消息的请求
+     * fastRemotingServer 的场景就是当 vipChannelEnabled参数 开启时，生产者、消费者发送消息才发送到fastRemotingServer 其实也不用太care，作用是一样的，只不过是为了更快处理请求
+     */
     private RemotingServer fastRemotingServer;
     private TopicConfigManager topicConfigManager;
+
+    /**
+     * 底下的都是线程池，搞这么多线程池是为了做到线程隔离，保证就算某个线程池出现异常，其它线程池也不会受影响
+     */
     private ExecutorService sendMessageExecutor;
     private ExecutorService putMessageFutureExecutor;
     private ExecutorService pullMessageExecutor;
@@ -204,12 +246,25 @@ public class BrokerController {
     private ExecutorService consumerManageExecutor;
     private ExecutorService endTransactionExecutor;
     private boolean updateMasterHAServerAddrPeriodically = false;
+
+
     private BrokerStats brokerStats;
     private InetSocketAddress storeHost;
     private BrokerFastFailure brokerFastFailure;
     private Configuration configuration;
+
+    /**
+     * 监听文件变更的组件，在这里主要是跟ssl有关，保证ssl文件变动可以做到热更新，不用重启，不用太care
+     */
     private FileWatchService fileWatchService;
+
+    /**
+     * 事务消息检查线程，跟事务消息有关
+     */
     private TransactionalMessageCheckService transactionalMessageCheckService;
+    /**
+     * 事务消息的处理组件
+     */
     private TransactionalMessageService transactionalMessageService;
     private AbstractTransactionalMessageCheckListener transactionalMessageCheckListener;
     private Future<?> slaveSyncFuture;
@@ -221,6 +276,7 @@ public class BrokerController {
         final NettyClientConfig nettyClientConfig,
         final MessageStoreConfig messageStoreConfig
     ) {
+        //构造函数主要是赋值用的
         this.brokerConfig = brokerConfig;
         this.nettyServerConfig = nettyServerConfig;
         this.nettyClientConfig = nettyClientConfig;
@@ -280,7 +336,13 @@ public class BrokerController {
         return queryThreadPoolQueue;
     }
 
+    /**
+     * 初始化，broker启动会调用
+     * @return
+     * @throws CloneNotSupportedException
+     */
     public boolean initialize() throws CloneNotSupportedException {
+        //从磁盘中加载数据
         boolean result = this.topicConfigManager.load();
 
         result = result && this.consumerOffsetManager.load();
@@ -307,13 +369,17 @@ public class BrokerController {
             }
         }
 
+        //从磁盘中数据
         result = result && this.messageStore.load();
 
         if (result) {
+            //都加载成功之后，然后再进行后续的操作
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
             fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
+
+            //创建一堆线程池
             this.sendMessageExecutor = new BrokerFixedThreadPoolExecutor(
                 this.brokerConfig.getSendMessageThreadPoolNums(),
                 this.brokerConfig.getSendMessageThreadPoolNums(),
@@ -386,6 +452,7 @@ public class BrokerController {
                 Executors.newFixedThreadPool(this.brokerConfig.getConsumerManageThreadPoolNums(), new ThreadFactoryImpl(
                     "ConsumerManageThread_"));
 
+            //注册请求的处理器
             this.registerProcessor();
 
             final long initialDelay = UtilAll.computeNextMorningTimeMillis() - System.currentTimeMillis();
@@ -540,10 +607,16 @@ public class BrokerController {
             initialAcl();
             initialRpcHooks();
         }
+
+        //到这整个broker的启动就完成了
         return result;
     }
 
+    /**
+     * 初始化事务消息相关的组件
+     */
     private void initialTransaction() {
+        //spi机制加载TransactionalMessageService，默认就一个TransactionalMessageServiceImpl实现
         this.transactionalMessageService = ServiceProvider.loadClass(ServiceProvider.TRANSACTION_SERVICE_ID, TransactionalMessageService.class);
         if (null == this.transactionalMessageService) {
             this.transactionalMessageService = new TransactionalMessageServiceImpl(new TransactionalMessageBridge(this, this.getMessageStore()));
@@ -558,6 +631,9 @@ public class BrokerController {
         this.transactionalMessageCheckService = new TransactionalMessageCheckService(this);
     }
 
+    /**
+     * 初始化跟访问权限相关的东西，默认是不开启的
+     */
     private void initialAcl() {
         if (!this.brokerConfig.isAclEnable()) {
             log.info("The broker dose not enable acl");
@@ -608,6 +684,7 @@ public class BrokerController {
         sendProcessor.registerSendMessageHook(sendMessageHookList);
         sendProcessor.registerConsumeMessageHook(consumeMessageHookList);
 
+        //注册请求的处理器，每个请求有对应的处理这些请求的线程池，保证线程池隔离
         this.remotingServer.registerProcessor(RequestCode.SEND_MESSAGE, sendProcessor, this.sendMessageExecutor);
         this.remotingServer.registerProcessor(RequestCode.SEND_MESSAGE_V2, sendProcessor, this.sendMessageExecutor);
         this.remotingServer.registerProcessor(RequestCode.SEND_BATCH_MESSAGE, sendProcessor, this.sendMessageExecutor);
@@ -617,7 +694,7 @@ public class BrokerController {
         this.fastRemotingServer.registerProcessor(RequestCode.SEND_BATCH_MESSAGE, sendProcessor, this.sendMessageExecutor);
         this.fastRemotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, this.sendMessageExecutor);
         /**
-         * PullMessageProcessor
+         * PullMessageProcessor 这里没有设置fastRemotingServer没有注册pullMessageProcessor，说明fastRemotingServer不会处理拉取消息的请求
          */
         this.remotingServer.registerProcessor(RequestCode.PULL_MESSAGE, this.pullMessageProcessor, this.pullMessageExecutor);
         this.pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
@@ -948,6 +1025,7 @@ public class BrokerController {
             this.registerBrokerAll(true, false, true);
         }
 
+        // 开启一个定制任务定时会注册当前broker
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -989,6 +1067,11 @@ public class BrokerController {
         doRegisterBrokerAll(true, false, topicConfigSerializeWrapper);
     }
 
+    /**
+     * @param checkOrderConfig
+     * @param oneway 是否是单向的
+     * @param forceRegister    是否强制执行注册逻辑
+     */
     public synchronized void registerBrokerAll(final boolean checkOrderConfig, boolean oneway, boolean forceRegister) {
         TopicConfigSerializeWrapper topicConfigWrapper = this.getTopicConfigManager().buildTopicConfigSerializeWrapper();
 

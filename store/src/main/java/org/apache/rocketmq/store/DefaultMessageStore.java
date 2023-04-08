@@ -617,8 +617,8 @@ public class DefaultMessageStore implements MessageStore {
      * @param topic         Topic to query.
      * @param queueId       Queue ID to query.
      * @param offset        Logical offset to start from. 逻辑消息的位置其实就是指这个消息在 Queue 中的位置，通过在Queue的中的位置就能拿到真正消息的位置，就能获取到消息了
-     * @param maxMsgNums    Maximum count of messages to query.
-     * @param messageFilter Message filter used to screen desired messages.
+     * @param maxMsgNums    Maximum count of messages to query. 查询消息最大的消息数量
+     * @param messageFilter Message filter used to screen desired messages. 消息过滤器，过滤不符和查找条件的消息
      * @return
      */
     public GetMessageResult getMessage(final String group, final String topic, final int queueId, final long offset,
@@ -674,7 +674,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
-                // 根据 consumequeue的偏移量，查找数据
+                // 根据 consumequeue的offset 去 consumequeue 查找数据
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -806,6 +806,7 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         getResult.setStatus(status);
+        //设置下次拉取消息的offset，这样消费者就知道下次该拉取哪个consumequeue位置的消息
         getResult.setNextBeginOffset(nextBeginOffset);
         getResult.setMaxOffset(maxOffset);
         getResult.setMinOffset(minOffset);

@@ -60,9 +60,17 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 /**
  * broker 跟 主动向其他角色发送请求的组件
  * 比如向其他broker发送请求，向namserver发送请求
+ * <p>
+ * 这个组件提供了以下几个功能
+ * 1) 向所有的namesrv注册当前broker信息信息的功能
+ * 2) 向broker集群中的主节点同步数据的功能，比如同步消费进度之类的，当然这些情况只可能是当前broker是从节点时才会发生
  */
 public class BrokerOuterAPI {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
+
+    /**
+     * broker作为客户端时对外通信组件
+     */
     private final RemotingClient remotingClient;
     private final TopAddressing topAddressing = new TopAddressing(MixAll.getWSAddr());
     private String nameSrvAddr = null;
@@ -87,6 +95,10 @@ public class BrokerOuterAPI {
         this.brokerOuterExecutor.shutdown();
     }
 
+    /**
+     * 获取namesrv的地址
+     * @return
+     */
     public String fetchNameServerAddr() {
         try {
             String addrs = this.topAddressing.fetchNSAddr();
@@ -115,7 +127,7 @@ public class BrokerOuterAPI {
     }
 
     /**
-     * 向 nameser 注册 broker 的信息
+     * 向 每个 nameser 注册 当前 broker 的信息
      *
      * @param clusterName
      * @param brokerAddr
@@ -145,7 +157,9 @@ public class BrokerOuterAPI {
         List<String> nameServerAddressList = this.remotingClient.getNameServerAddressList();
         if (nameServerAddressList != null && nameServerAddressList.size() > 0) {
 
+            //构建请求参数
             final RegisterBrokerRequestHeader requestHeader = new RegisterBrokerRequestHeader();
+            //携带一些当前broker的信息
             requestHeader.setBrokerAddr(brokerAddr);
             requestHeader.setBrokerId(brokerId);
             requestHeader.setBrokerName(brokerName);
@@ -159,8 +173,11 @@ public class BrokerOuterAPI {
             final byte[] body = requestBody.encode(compressed);
             final int bodyCrc32 = UtilAll.crc32(body);
             requestHeader.setBodyCrc32(bodyCrc32);
+
+            //这里用到了CountDownLatch，保证每个namesrv都注册成功之后该方法执行完
             final CountDownLatch countDownLatch = new CountDownLatch(nameServerAddressList.size());
             for (final String namesrvAddr : nameServerAddressList) {
+                //循环遍历每个namesrv，提交一个注册的任务给线程池
                 brokerOuterExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -189,6 +206,21 @@ public class BrokerOuterAPI {
         return registerBrokerResultList;
     }
 
+    /**
+     * 真正的注册broker的逻辑
+     * @param namesrvAddr
+     * @param oneway
+     * @param timeoutMills
+     * @param requestHeader
+     * @param body
+     * @return
+     * @throws RemotingCommandException
+     * @throws MQBrokerException
+     * @throws RemotingConnectException
+     * @throws RemotingSendRequestException
+     * @throws RemotingTimeoutException
+     * @throws InterruptedException
+     */
     private RegisterBrokerResult registerBroker(
         final String namesrvAddr,
         final boolean oneway,
@@ -197,10 +229,12 @@ public class BrokerOuterAPI {
         final byte[] body
     ) throws RemotingCommandException, MQBrokerException, RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException,
         InterruptedException {
+        //将请求参数封装成 RemotingCommand
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.REGISTER_BROKER, requestHeader);
         request.setBody(body);
 
         if (oneway) {
+            //如果是单向请求，那么就单向请求
             try {
                 this.remotingClient.invokeOneway(namesrvAddr, request, timeoutMills);
             } catch (RemotingTooMuchRequestException e) {
@@ -209,13 +243,17 @@ public class BrokerOuterAPI {
             return null;
         }
 
+        //同步调用注册
         RemotingCommand response = this.remotingClient.invokeSync(namesrvAddr, request, timeoutMills);
         assert response != null;
         switch (response.getCode()) {
             case ResponseCode.SUCCESS: {
+                //向namesrv注册成功了
                 RegisterBrokerResponseHeader responseHeader =
                     (RegisterBrokerResponseHeader) response.decodeCommandCustomHeader(RegisterBrokerResponseHeader.class);
                 RegisterBrokerResult result = new RegisterBrokerResult();
+                //注册成功之后，namesrv会告诉当前broker主节点地址是多少，如果有的话
+                //所以从这可以看出，注册的时候其实是namesrv告诉当前broker的集群中主节点
                 result.setMasterAddr(responseHeader.getMasterAddr());
                 result.setHaServerAddr(responseHeader.getHaServerAddr());
                 if (response.getBody() != null) {
@@ -230,6 +268,14 @@ public class BrokerOuterAPI {
         throw new MQBrokerException(response.getCode(), response.getRemark(), requestHeader == null ? null : requestHeader.getBrokerAddr());
     }
 
+    /**
+     * 取消注册，下线
+     *
+     * @param clusterName
+     * @param brokerAddr
+     * @param brokerName
+     * @param brokerId
+     */
     public void unregisterBrokerAll(
         final String clusterName,
         final String brokerAddr,
@@ -276,6 +322,17 @@ public class BrokerOuterAPI {
         throw new MQBrokerException(response.getCode(), response.getRemark(), brokerAddr);
     }
 
+    /**
+     * 判断当前broker是否需要注册
+     *
+     * @param clusterName
+     * @param brokerAddr
+     * @param brokerName
+     * @param brokerId
+     * @param topicConfigWrapper
+     * @param timeoutMills
+     * @return
+     */
     public List<Boolean> needRegister(
         final String clusterName,
         final String brokerAddr,
@@ -359,6 +416,17 @@ public class BrokerOuterAPI {
         throw new MQBrokerException(response.getCode(), response.getRemark(), addr);
     }
 
+    /**
+     * 当当前broker是从节点的时候，会通过这个方法去向主节点同步消费者的消费进度
+     *
+     * @param addr 主节点的地址
+     * @return
+     * @throws InterruptedException
+     * @throws RemotingTimeoutException
+     * @throws RemotingSendRequestException
+     * @throws RemotingConnectException
+     * @throws MQBrokerException
+     */
     public ConsumerOffsetSerializeWrapper getAllConsumerOffset(
         final String addr) throws InterruptedException, RemotingTimeoutException,
         RemotingSendRequestException, RemotingConnectException, MQBrokerException {
