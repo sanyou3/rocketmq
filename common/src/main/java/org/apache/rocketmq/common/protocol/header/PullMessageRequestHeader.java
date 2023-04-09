@@ -25,21 +25,48 @@ import org.apache.rocketmq.remoting.annotation.CFNotNull;
 import org.apache.rocketmq.remoting.annotation.CFNullable;
 import org.apache.rocketmq.remoting.exception.RemotingCommandException;
 
+/**
+ * 拉取消息的参数信息
+ */
 public class PullMessageRequestHeader implements CommandCustomHeader {
+
+    /**
+     * 当前消费者组
+     */
     @CFNotNull
     private String consumerGroup;
+
+    /**
+     * 拉取的是哪个topic的信息
+     */
     @CFNotNull
     private String topic;
+
+    /**
+     * 拉取的是哪个队列的信息
+     */
     @CFNotNull
     private Integer queueId;
+
+    /**
+     * 从哪个位置开始拉取消息
+     */
     @CFNotNull
     private Long queueOffset;
+
+    /**
+     * 最多拉取多少条消息，从这可以看出，消费者拉取消息是批量的，而不是一条一条的
+     */
     @CFNotNull
     private Integer maxMsgNums;
     @CFNotNull
     private Integer sysFlag;
     @CFNotNull
     private Long commitOffset;
+
+    /**
+     * 长轮询最多等待时间，默认20s
+     */
     @CFNotNull
     private Long suspendTimeoutMillis;
     @CFNullable

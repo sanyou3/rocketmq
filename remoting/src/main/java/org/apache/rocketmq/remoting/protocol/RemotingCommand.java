@@ -77,16 +77,37 @@ public class RemotingCommand {
      * 请求的类型 ，代表这个请求是干啥的，{@link org.apache.rocketmq.common.protocol.RequestCode}
      */
     private int code;
+    /**
+     * 语言，模式是java，说明还支持其它语言
+     */
     private LanguageCode language = LanguageCode.JAVA;
+    /**
+     * 当前rocketmq的版本号，因为使用的时候可能出现客户端跟服务端版本号不一样的地方，所以要做兼容
+     */
     private int version = 0;
+    /**
+     * 请求的唯一id
+     */
     private int opaque = requestId.getAndIncrement();
     private int flag = 0;
     private String remark;
+    /**
+     * 扩展字段，可以携带很多信息
+     */
     private HashMap<String, String> extFields;
+    /**
+     * 就是一些属性信息，customHeader最终会被转换成键值对存到extFields中
+     */
     private transient CommandCustomHeader customHeader;
 
+    /**
+     * 序列化类型，接收方需要根据序列化类型反序列化
+     */
     private SerializeType serializeTypeCurrentRPC = serializeTypeConfigInThisServer;
 
+    /**
+     * 额外的一些数据，这些数据不好表示，直接用字节保存
+     */
     private transient byte[] body;
 
     protected RemotingCommand() {

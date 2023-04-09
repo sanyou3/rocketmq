@@ -87,6 +87,8 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      * For non-transactional messages, it does not matter as long as it's unique per process. </p>
      *
      * See {@linktourl http://rocketmq.apache.org/docs/core-concept/} for more discussion.
+     *
+     * 生产者组
      */
     private String producerGroup;
 
@@ -109,6 +111,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
 
     /**
      * Compress message body threshold, namely, message body larger than 4k will be compressed on default.
+     * 消息压缩，也就是当消息大于4k的时候，太大了，需要对消息进行压缩
      */
     private int compressMsgBodyOverHowmuch = 1024 * 4;
 
@@ -131,11 +134,13 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     /**
      * Indicate whether to retry another broker on sending failure internally.
      * 这个是开启重试机制 ，跟 retryTimesWhenSendFailed  配合使用
+     * 因为消息发送的时候会涉及到刷盘机制，主从同步之类的，虽然消息发送成功了，但是刷盘机制，主从同步等超时了，
+     * 那么如果这个设置为true，那么还是会进行消息的重新发送
      */
     private boolean retryAnotherBrokerWhenNotStoreOK = false;
 
     /**
-     * Maximum allowed message size in bytes.
+     * Maximum allowed message size in bytes. 消息的最大大小，默认是4m，超过4m就会报错
      */
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
