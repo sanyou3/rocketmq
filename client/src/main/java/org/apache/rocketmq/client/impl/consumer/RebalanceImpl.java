@@ -62,7 +62,7 @@ public abstract class RebalanceImpl {
             new ConcurrentHashMap<String, Set<MessageQueue>>();
 
     /**
-     * topic 跟 对这个topic订阅信息的映射
+     * topic 跟 对这个topic订阅信息的映射 这个消费者订阅的topic信息
      */
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
             new ConcurrentHashMap<String, SubscriptionData>();

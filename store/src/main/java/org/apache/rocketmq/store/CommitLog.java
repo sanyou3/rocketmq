@@ -76,6 +76,10 @@ public class CommitLog {
      */
     private final AppendMessageCallback appendMessageCallback;
     private final ThreadLocal<PutMessageThreadLocal> putMessageThreadLocal;
+
+    /**
+     * 这个是存目前某个topic的某个queue已经存的消息的offset值
+     */
     protected HashMap<String/* topic-queueid */, Long/* offset */> topicQueueTable = new HashMap<String, Long>(1024);
     protected Map<String/* topic-queueid */, Long/* offset */> lmqTopicQueueTable = new ConcurrentHashMap<>(1024);
     protected volatile long confirmOffset = -1L;
@@ -1575,6 +1579,8 @@ public class CommitLog {
 
             messagesByteBuff.position(0);
             messagesByteBuff.limit(totalMsgLen);
+
+            //将消息存在文件的映射bytebuffer中
             byteBuffer.put(messagesByteBuff);
             messageExtBatch.setEncodedBuff(null);
             AppendMessageResult result = new AppendMessageResult(AppendMessageStatus.PUT_OK, wroteOffset, totalMsgLen, msgIdSupplier,
@@ -1592,6 +1598,9 @@ public class CommitLog {
 
     }
 
+    /**
+     * 将 Message 按照一定的存储顺序 序列化 为字节放在 encoderBuffer 中
+     */
     public static class MessageExtEncoder {
         // Store the message content
         private final ByteBuffer encoderBuffer;
@@ -1655,6 +1664,7 @@ public class CommitLog {
             // 5 FLAG
             this.encoderBuffer.putInt(msgInner.getFlag());
             // 6 QUEUEOFFSET, need update later
+            // 这个后面再设置实际的值，目前只是占个位置
             this.encoderBuffer.putLong(0);
             // 7 PHYSICALOFFSET, need update later
             this.encoderBuffer.putLong(0);
@@ -1763,9 +1773,9 @@ public class CommitLog {
                 this.encoderBuffer.putInt(messageExtBatch.getQueueId());
                 // 5 FLAG
                 this.encoderBuffer.putInt(flag);
-                // 6 QUEUEOFFSET
+                // 6 QUEUEOFFSET 这里先占个位置
                 this.encoderBuffer.putLong(0);
-                // 7 PHYSICALOFFSET
+                // 7 PHYSICALOFFSET 这里先占个位置
                 this.encoderBuffer.putLong(0);
                 // 8 SYSFLAG
                 this.encoderBuffer.putInt(messageExtBatch.getSysFlag());

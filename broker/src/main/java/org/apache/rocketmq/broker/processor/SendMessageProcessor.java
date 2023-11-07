@@ -144,6 +144,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             return CompletableFuture.completedFuture(response);
         }
 
+        //重试topic
         String newTopic = MixAll.getRetryTopic(requestHeader.getGroup());
         int queueIdInt = ThreadLocalRandom.current().nextInt(99999999) % subscriptionGroupConfig.getRetryQueueNums();
         int topicSysFlag = 0;
@@ -191,6 +192,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         if (msgExt.getReconsumeTimes() >= maxReconsumeTimes
             || delayLevel < 0) {
+
+            //死信队列 已经超过了最大重试次数 或者 设置的延迟级别<0 不过默认就是0
             newTopic = MixAll.getDLQTopic(requestHeader.getGroup());
             queueIdInt = ThreadLocalRandom.current().nextInt(99999999) % DLQ_NUMS_PER_GROUP;
 

@@ -67,6 +67,13 @@ public class ResponseFuture {
         return diff > this.timeoutMillis;
     }
 
+    /**
+     * 等待响应结果
+     *
+     * @param timeoutMillis
+     * @return
+     * @throws InterruptedException
+     */
     public RemotingCommand waitResponse(final long timeoutMillis) throws InterruptedException {
         this.countDownLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
         return this.responseCommand;

@@ -369,7 +369,7 @@ public class ScheduleMessageService extends ConfigManager {
         private final int delayLevel;
 
         /**
-         * 指的是  ConsumeQueue 中的 offset
+         * 指的是  ConsumeQueue 中的 offset 代表从投递哪个位置的消息
          */
         private final long offset;
 

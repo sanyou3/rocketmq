@@ -120,12 +120,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
      * 异步发送消息到MQ时线程池
      */
     private final ExecutorService defaultAsyncSenderExecutor;
-    protected BlockingQueue<Runnable> checkRequestQueue;
 
+    /**
+     * 事务消息检查
+     */
+    protected BlockingQueue<Runnable> checkRequestQueue;
     /**
      * 检查本地事务执行状态的线程池
      */
     protected ExecutorService checkExecutor;
+
+    /**
+     * 当前生产者的状态
+     */
     private ServiceState serviceState = ServiceState.CREATE_JUST;
 
     /**

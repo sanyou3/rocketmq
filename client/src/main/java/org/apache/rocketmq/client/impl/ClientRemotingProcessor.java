@@ -101,6 +101,14 @@ public class ClientRemotingProcessor extends AsyncNettyRequestProcessor implemen
         return false;
     }
 
+    /**
+     * 检查本地事务的状态
+     *
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     public RemotingCommand checkTransactionState(ChannelHandlerContext ctx,
                                                  RemotingCommand request) throws RemotingCommandException {
         final CheckTransactionStateRequestHeader requestHeader =

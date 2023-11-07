@@ -254,6 +254,13 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         }
     }
 
+    /**
+     * 处理消息消费的结果
+     *
+     * @param status
+     * @param context
+     * @param consumeRequest
+     */
     public void processConsumeResult(
         final ConsumeConcurrentlyStatus status,
         final ConsumeConcurrentlyContext context,
@@ -312,6 +319,8 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
+        //不论有没有消费成功，都移除正在处理的消息，并且把这个offset提交给服务端
+        //所以从这可以看出，即使提交了offset，但并不代表这个消息成功消费了，这是因为失败了会有重试的，所以尽管消费就完事了
         long offset = consumeRequest.getProcessQueue().removeMessage(consumeRequest.getMsgs());
         if (offset >= 0 && !consumeRequest.getProcessQueue().isDropped()) {
             this.defaultMQPushConsumerImpl.getOffsetStore().updateOffset(consumeRequest.getMessageQueue(), offset, true);
@@ -364,6 +373,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         }, 5000, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 消费消息的数据的封装，内部执行了消费消息的逻辑
+     */
     class ConsumeRequest implements Runnable {
         private final List<MessageExt> msgs;
         private final ProcessQueue processQueue;

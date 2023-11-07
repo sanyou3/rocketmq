@@ -625,7 +625,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
                 this.checkConfig();
 
-                // 将订阅的 topic 的信息放到 重平衡组件，并且在集群模式下，会为每个topic构建重试的topic
+                // 将订阅的 topic 的信息放到 重平衡组件，并且在集群模式下，会为构建重试的topic
                 this.copySubscription();
 
                 if (this.defaultMQPushConsumer.getMessageModel() == MessageModel.CLUSTERING) {
@@ -897,7 +897,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 case BROADCASTING:
                     break;
                 case CLUSTERING:
-                    //创建一个重试的topic
+                    //创建一个重试的topic 然后订阅这个重试topic
                     final String retryTopic = MixAll.getRetryTopic(this.defaultMQPushConsumer.getConsumerGroup());
                     SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(retryTopic, SubscriptionData.SUB_ALL);
                     this.rebalanceImpl.getSubscriptionInner().put(retryTopic, subscriptionData);
