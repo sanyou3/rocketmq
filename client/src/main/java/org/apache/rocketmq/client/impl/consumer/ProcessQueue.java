@@ -218,6 +218,11 @@ public class ProcessQueue {
         return 0;
     }
 
+    /**
+     * 并发消费时提交消息，获取offset
+     * @param msgs
+     * @return
+     */
     public long removeMessage(final List<MessageExt> msgs) {
         long result = -1;
         final long now = System.currentTimeMillis();
@@ -238,6 +243,7 @@ public class ProcessQueue {
                     msgCount.addAndGet(removedCnt);
 
                     if (!msgTreeMap.isEmpty()) {
+                        // 提交的offset
                         result = msgTreeMap.firstKey();
                     }
                 }

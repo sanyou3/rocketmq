@@ -307,6 +307,7 @@ public class MappedFile extends ReferenceResource {
 
     /**
      * @return The current flushed position
+     * 刷盘 真正将磁盘中的数据刷到磁盘中
      */
     public int flush(final int flushLeastPages) {
         if (this.isAbleToFlush(flushLeastPages)) {
