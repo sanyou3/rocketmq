@@ -76,6 +76,9 @@ public class MappedFile extends ReferenceResource {
      * 当前文件的总大小
      */
     protected int fileSize;
+    /**
+     * 文件通道
+     */
     protected FileChannel fileChannel;
     /**
      * Message will put to here first, and then reput to FileChannel if writeBuffer is not null.
@@ -93,6 +96,9 @@ public class MappedFile extends ReferenceResource {
      */
     private long fileFromOffset;
     private File file;
+    /**
+     * 这个是文件
+     */
     private MappedByteBuffer mappedByteBuffer;
     private volatile long storeTimestamp = 0;
     private boolean firstCreateInQueue = false;
@@ -317,8 +323,10 @@ public class MappedFile extends ReferenceResource {
                 try {
                     //We only append data to fileChannel or mappedByteBuffer, never both.
                     if (writeBuffer != null || this.fileChannel.position() != 0) {
+                        //刷到磁盘
                         this.fileChannel.force(false);
                     } else {
+                        //
                         this.mappedByteBuffer.force();
                     }
                 } catch (Throwable e) {

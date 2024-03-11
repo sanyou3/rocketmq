@@ -483,6 +483,11 @@ public class MappedFileQueue {
         return result;
     }
 
+    /**
+     * 提交的意思就是当开启对外内存使用的时候，需要定时或者某种机制将对外内存的数据提交到PageCache
+     * @param commitLeastPages
+     * @return
+     */
     public boolean commit(final int commitLeastPages) {
         boolean result = true;
         MappedFile mappedFile = this.findMappedFileByOffset(this.committedWhere, this.committedWhere == 0);

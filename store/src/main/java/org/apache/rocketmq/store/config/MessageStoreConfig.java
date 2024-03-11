@@ -53,6 +53,11 @@ public class MessageStoreConfig {
     @ImportantField
     private int flushIntervalCommitLog = 500;
 
+    // How many pages are to be flushed when flush CommitLog
+    private int flushCommitLogLeastPages = 4;
+
+    private int flushCommitLogThoroughInterval = 1000 * 10;
+
     // Only used if TransientStorePool enabled
     // flush data to FileChannel
     @ImportantField
@@ -91,15 +96,14 @@ public class MessageStoreConfig {
     // This ensures no on-the-wire or on-disk corruption to the messages occurred.
     // This check adds some overhead,so it may be disabled in cases seeking extreme performance.
     private boolean checkCRCOnRecover = true;
-    // How many pages are to be flushed when flush CommitLog
-    private int flushCommitLogLeastPages = 4;
+
     // How many pages are to be committed when commit data to file
     private int commitCommitLogLeastPages = 4;
     // Flush page size when the disk in warming state
     private int flushLeastPagesWhenWarmMapedFile = 1024 / 4 * 16;
     // How many pages are to be flushed when flush ConsumeQueue
     private int flushConsumeQueueLeastPages = 2;
-    private int flushCommitLogThoroughInterval = 1000 * 10;
+
     private int commitCommitLogThoroughInterval = 200;
     private int flushConsumeQueueThoroughInterval = 1000 * 60;
     @ImportantField
